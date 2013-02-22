@@ -1,3 +1,19 @@
+/**
+ *    Copyright 2013, Big Switch Networks, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *    not use this file except in compliance with the License. You may obtain
+ *    a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *    License for the specific language governing permissions and limitations
+ *    under the License.
+ **/
+
 package net.floodlightcontroller.staticflowentry;
 
 import java.io.IOException;
@@ -66,12 +82,14 @@ public class StaticFlowEntries {
      */
     public static long computeEntryCookie(OFFlowMod fm, int userCookie, String name) {
         // flow-specific hash is next 20 bits LOOK! who knows if this 
+        /*
         int prime = 211;
         int flowHash = 2311;
         for (int i=0; i < name.length(); i++)
             flowHash = flowHash * prime + (int)name.charAt(i);
-        
-        return AppCookie.makeCookie(StaticFlowEntryPusher.STATIC_FLOW_APP_ID, flowHash);
+        */
+        // For now we use 0 so we can do a mass delete by cookie
+        return AppCookie.makeCookie(StaticFlowEntryPusher.STATIC_FLOW_APP_ID, 0);
     }
     
     /**

@@ -1,3 +1,19 @@
+/**
+ *    Copyright 2013, Big Switch Networks, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *    not use this file except in compliance with the License. You may obtain
+ *    a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *    License for the specific language governing permissions and limitations
+ *    under the License.
+ **/
+
 package net.floodlightcontroller.packetstreamer;
 
 import net.floodlightcontroller.core.annotations.LogMessageCategory;
@@ -79,7 +95,7 @@ public class PacketStreamerHandler implements PacketStreamer.Iface {
                 message="Interrupted while waiting for packets",
                 explanation="The thread was interrupted waiting " +
                         "for packets",
-                recommendation=LogMessageDoc.CHECK_CONTROLLER),
+                recommendation=LogMessageDoc.CHECK_CONTROLLER)
     })
     public List<ByteBuffer> getPackets(String sessionid)
             throws org.apache.thrift.TException {
@@ -127,7 +143,7 @@ public class PacketStreamerHandler implements PacketStreamer.Iface {
                 message="queue for session {sessionId} is null",
                 explanation="The queue for the packet streamer session " +
                 		"is missing",
-                recommendation=LogMessageDoc.REPORT_CONTROLLER_BUG),
+                recommendation=LogMessageDoc.REPORT_CONTROLLER_BUG)
     })
 
     public int pushMessageSync(Message msg)

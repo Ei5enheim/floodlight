@@ -18,12 +18,17 @@
 package net.floodlightcontroller.core;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.Lock;
+
 import net.floodlightcontroller.core.IFloodlightProviderService.Role;
+import net.floodlightcontroller.core.internal.Controller;
+import net.floodlightcontroller.threadpool.IThreadPoolService;
 
 import org.jboss.netty.channel.Channel;
 import org.openflow.protocol.OFFeaturesReply;
@@ -49,7 +54,58 @@ public interface IOFSwitch {
     public static final String PROP_SUPPORTS_OFPP_TABLE = "supportsOfppTable";
     public static final String PROP_SUPPORTS_OFPP_FLOOD = "supportsOfppFlood";
     public static final String PROP_SUPPORTS_NETMASK_TBL = "supportsNetmaskTbl";
-    
+
+    public enum OFPortType {
+        NORMAL("normal"),         // normal port (default)
+        TUNNEL("tunnel"),         // tunnel port
+        UPLINK("uplink"),         // uplink port (on a virtual switch)
+        MANAGEMENT("management"), // for in-band management
+        TUNNEL_LOOPBACK("tunnel-loopback");
+        
+        private String value;
+        OFPortType(String v) {
+            value = v;
+        }
+        
+        @Override
+        public String toString() {
+            return value;
+        }
+
+        public static OFPortType fromString(String str) {
+            for (OFPortType m : OFPortType.values()) {
+                if (m.value.equals(str)) {
+                    return m;
+                }
+            }
+            return OFPortType.NORMAL;
+        }
+    }
+
+    /**
+     * Set IFloodlightProviderService for this switch instance
+     * Called immediately after instantiation
+     * 
+     * @param controller
+     */
+    public void setFloodlightProvider(Controller controller);
+
+    /**
+     * Set IThreadPoolService for this switch instance
+     * Called immediately after instantiation
+     * 
+     * @param threadPool
+     */
+    public void setThreadPoolService(IThreadPoolService threadPool);
+
+    /**
+     * Set the netty Channel this switch instance is associated with
+     * Called immediately after instantiation
+     * 
+     * @param channel
+     */
+    public void setChannel(Channel channel);
+
     /**
      * Writes to the OFMessage to the output stream.
      * The message will be handed to the floodlightProvider for possible filtering
@@ -77,13 +133,6 @@ public interface IOFSwitch {
     public void disconnectOutputStream();
 
     /**
-     * FIXME: remove getChannel(). All access to the channel should be through
-     *        wrapper functions in IOFSwitch
-     * @return
-     */
-    public Channel getChannel();
-
-    /**
      * Returns switch features from features Reply
      * @return
      */
@@ -102,12 +151,6 @@ public interface IOFSwitch {
      */
     public void setFeaturesReply(OFFeaturesReply featuresReply);
     
-    /**
-     * Set the SwitchProperties based on it's description
-     * @param description
-     */
-    public void setSwitchProperties(OFDescriptionStatistics description);    
-
     /**
      * Get list of all enabled ports. This will typically be different from
      * the list of ports in the OFFeaturesReply, since that one is a static
@@ -214,6 +257,12 @@ public interface IOFSwitch {
     public String getStringId();
     
     /**
+     * Get the IP Address for the switch
+     * @return the inet address
+     */
+    public SocketAddress getInetAddress();
+    
+    /**
      * Retrieves attributes of this switch
      * @return
      */
@@ -250,7 +299,7 @@ public interface IOFSwitch {
      * @return Future object wrapping OFStatisticsReply
      * @throws IOException 
      */
-    public Future<OFFeaturesReply> getFeaturesReplyFromSwitch()
+    public Future<OFFeaturesReply> querySwitchFeaturesReply()
             throws IOException;
 
     /**
@@ -283,15 +332,19 @@ public interface IOFSwitch {
      * Get the current role of the controller for the switch
      * @return the role of the controller
      */
-    public Role getRole();
+    public Role getHARole();
     
     /**
-     * Check if the controller is an active controller for the switch.
-     * The controller is active if its role is MASTER or EQUAL.
-     * @return whether the controller is active
+     * Set switch's HA role to role. The haRoleReplyReceived indicates
+     * if a reply was received from the switch (error replies excluded).
+     * 
+     * If role is null, the switch should close the channel connection.
+     * 
+     * @param role
+     * @param haRoleReplyReceived
      */
-    public boolean isActive();
-    
+    public void setHARole(Role role, boolean haRoleReplyReceived);
+
     /**
      * Deliver the statistics future reply
      * @param reply the reply to deliver
@@ -322,6 +375,16 @@ public interface IOFSwitch {
      * @return value for name
      */
     Object getAttribute(String name);
+    
+    /**
+     * Check if the given attribute is present and if so whether it is equal
+     * to "other"
+     * @param name the name of the attribute to check
+     * @param other the object to compare the attribute against.
+     * @return true iff the specified attribute is set and equals() the given
+     * other object.
+     */
+    boolean attributeEquals(String name, Object other);
 
     /**
      * Set properties for switch specific behavior
@@ -375,5 +438,55 @@ public interface IOFSwitch {
      * Flush all flows queued for this switch in the current thread.
      * NOTE: The contract is limited to the current thread
      */
-     public void flush();
+    public void flush();
+
+    /**
+     * Return a read lock that must be held while calling the listeners for
+     * messages from the switch. Holding the read lock prevents the active
+     * switch list from being modified out from under the listeners.
+     * @return 
+     */
+    public Lock getListenerReadLock();
+
+    /**
+     * Return a write lock that must be held when the controllers modifies the
+     * list of active switches. This is to ensure that the active switch list
+     * doesn't change out from under the listeners as they are handling a
+     * message from the switch.
+     * @return
+     */
+    public Lock getListenerWriteLock();
+
+    /***********************************************
+     * The following method can be overridden by
+     * specific types of switches
+     ***********************************************
+     */
+    
+    /**
+     * Set the SwitchProperties based on it's description
+     * @param description
+     */
+    public void setSwitchProperties(OFDescriptionStatistics description);    
+
+    /**
+     * Return the type of OFPort
+     * @param port_num
+     * @return
+     */
+    public OFPortType getPortType(short port_num);
+    
+    /**
+     * Can the port be turned on without forming a new loop?
+     * @param port_num
+     * @return
+     */
+    public boolean isFastPort(short port_num);
+
+    /**
+     * Retun a list of uplink port (for virtual switches only)
+     * @return
+     */
+    public List<Short> getUplinkPorts();
+    
 }

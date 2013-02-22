@@ -1,3 +1,19 @@
+/**
+ *    Copyright 2013, Big Switch Networks, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *    not use this file except in compliance with the License. You may obtain
+ *    a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *    License for the specific language governing permissions and limitations
+ *    under the License.
+ **/
+
 package net.floodlightcontroller.topology;
 
 import net.floodlightcontroller.core.IFloodlightProviderService;
@@ -50,78 +66,54 @@ public class TopologyManagerTest extends FloodlightTestCase {
         assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
         assertTrue(tm.getTunnelPorts().size()==0);
 
-        tm.addOrUpdateLink((long)1, (short)3, (long)2, (short)3, ILinkDiscovery.LinkType.TUNNEL);
-        assertTrue(tm.getSwitchPorts().size() == 2);  // for two nodes.
-        assertTrue(tm.getSwitchPorts().get((long)1).size()==3);
-        assertTrue(tm.getSwitchPorts().get((long)2).size()==3);
-        assertTrue(tm.getSwitchPortLinks().size()==6);
-        assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
-        assertTrue(tm.getTunnelPorts().size()==2);
-
         tm.removeLink((long)1, (short)2, (long)2, (short)2);
-        log.info("# of switchports. {}", tm.getSwitchPorts().get((long)1).size());
-        assertTrue(tm.getSwitchPorts().get((long)1).size()==2);
-        assertTrue(tm.getSwitchPorts().get((long)2).size()==2);
-        assertTrue(tm.getSwitchPorts().size() == 2);  // for two nodes.
-        assertTrue(tm.getSwitchPortLinks().size()==4);
-        assertTrue(tm.getPortBroadcastDomainLinks().size()==0);
-        assertTrue(tm.getTunnelPorts().size()==2);
-
-        tm.removeLink((long)1, (short)1, (long)2, (short)1);
-        assertTrue(tm.getSwitchPorts().size() == 2);  // for two nodes.
         assertTrue(tm.getSwitchPorts().get((long)1).size()==1);
         assertTrue(tm.getSwitchPorts().get((long)2).size()==1);
+        assertTrue(tm.getSwitchPorts().size() == 2);
         assertTrue(tm.getSwitchPortLinks().size()==2);
         assertTrue(tm.getPortBroadcastDomainLinks().size()==0);
-        assertTrue(tm.getTunnelPorts().size()==2);
 
-        tm.removeLink((long)1, (short)3, (long)2, (short)3);
+        tm.removeLink((long)1, (short)1, (long)2, (short)1);
         assertTrue(tm.getSwitchPorts().size() == 0); 
         assertTrue(tm.getSwitchPortLinks().size()==0);
         assertTrue(tm.getPortBroadcastDomainLinks().size()==0);
-        assertTrue(tm.getTunnelPorts().size()==0);
     }
 
     @Test
     public void testBasic2() throws Exception {
         tm.addOrUpdateLink((long)1, (short)1, (long)2, (short)1, ILinkDiscovery.LinkType.DIRECT_LINK);
         tm.addOrUpdateLink((long)2, (short)2, (long)3, (short)1, ILinkDiscovery.LinkType.MULTIHOP_LINK);
-        tm.addOrUpdateLink((long)3, (short)2, (long)1, (short)2, ILinkDiscovery.LinkType.TUNNEL);
-        assertTrue(tm.getSwitchPorts().size() == 3);  // for two nodes.
-        assertTrue(tm.getSwitchPorts().get((long)1).size()==2);
-        assertTrue(tm.getSwitchPorts().get((long)2).size()==2);
-        assertTrue(tm.getSwitchPorts().get((long)3).size()==2);
-        assertTrue(tm.getSwitchPortLinks().size()==6);
-        assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
-        assertTrue(tm.getTunnelPorts().size()==2);
-
-        tm.removeLink((long)1, (short)1, (long)2, (short)1);
         assertTrue(tm.getSwitchPorts().size() == 3);  // for two nodes.
         assertTrue(tm.getSwitchPorts().get((long)1).size()==1);
-        assertTrue(tm.getSwitchPorts().get((long)2).size()==1);
-        assertTrue(tm.getSwitchPorts().get((long)3).size()==2);
+        assertTrue(tm.getSwitchPorts().get((long)2).size()==2);
+        assertTrue(tm.getSwitchPorts().get((long)3).size()==1);
         assertTrue(tm.getSwitchPortLinks().size()==4);
         assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
-        assertTrue(tm.getTunnelPorts().size()==2);
+
+        tm.removeLink((long)1, (short)1, (long)2, (short)1);
+        assertTrue(tm.getSwitchPorts().size() == 2);
+        assertTrue(tm.getSwitchPorts().get((long)1) == null);
+        assertTrue(tm.getSwitchPorts().get((long)2).size()==1);
+        assertTrue(tm.getSwitchPorts().get((long)3).size()==1);
+        assertTrue(tm.getSwitchPortLinks().size()==2);
+        assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
 
         // nonexistent link // no null pointer exceptions.
         tm.removeLink((long)3, (short)1, (long)2, (short)2);
-        assertTrue(tm.getSwitchPorts().size() == 3);  // for two nodes.
-        assertTrue(tm.getSwitchPorts().get((long)1).size()==1);
+        assertTrue(tm.getSwitchPorts().size() == 2);
+        assertTrue(tm.getSwitchPorts().get((long)1) == null);
         assertTrue(tm.getSwitchPorts().get((long)2).size()==1);
-        assertTrue(tm.getSwitchPorts().get((long)3).size()==2);
-        assertTrue(tm.getSwitchPortLinks().size()==4);
+        assertTrue(tm.getSwitchPorts().get((long)3).size()==1);
+        assertTrue(tm.getSwitchPortLinks().size()==2);
         assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
-        assertTrue(tm.getTunnelPorts().size()==2);
 
         tm.removeLink((long)3, (short)2, (long)1, (short)2);
-        assertTrue(tm.getSwitchPorts().size() == 2);  // for two nodes.
+        assertTrue(tm.getSwitchPorts().size() == 2);
         assertTrue(tm.getSwitchPorts().get((long)1)==null);
         assertTrue(tm.getSwitchPorts().get((long)2).size()==1);
         assertTrue(tm.getSwitchPorts().get((long)3).size()==1);
         assertTrue(tm.getSwitchPortLinks().size()==2);
         assertTrue(tm.getPortBroadcastDomainLinks().size()==2);
-        assertTrue(tm.getTunnelPorts().size()==0);
 
         tm.removeLink((long)2, (short)2, (long)3, (short)1);
         assertTrue(tm.getSwitchPorts().size() == 0);  // for two nodes.
@@ -137,6 +129,6 @@ public class TopologyManagerTest extends FloodlightTestCase {
         assert(tm.switchPorts.isEmpty());
         assert(tm.switchPortLinks.isEmpty());
         assert(tm.portBroadcastDomainLinks.isEmpty());
-        assert(tm.tunnelLinks.isEmpty());
+        assert(tm.tunnelPorts.isEmpty());
     }
 }

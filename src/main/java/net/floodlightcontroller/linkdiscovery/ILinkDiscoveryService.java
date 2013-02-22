@@ -19,13 +19,18 @@ package net.floodlightcontroller.linkdiscovery;
 
 import java.util.Map;
 import java.util.Set;
-
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.topology.NodePortTuple;
 
 
 public interface ILinkDiscoveryService extends IFloodlightService {
+
+    /**
+     * Returns if a given switchport is a tunnel endpoint or not
+     */
+    public boolean isTunnelPort(long sw, short port);
+
     /**
      * Retrieves a map of all known link connections between OpenFlow switches
      * and the associated info (valid time, port states) for the link.
@@ -81,4 +86,10 @@ public interface ILinkDiscoveryService extends IFloodlightService {
      * @param autoPortFastFeature
      */
     public void setAutoPortFastFeature(boolean autoPortFastFeature);
+
+    /**
+     * Get the map of node-port tuples from link DB
+     */
+    public Map<NodePortTuple, Set<Link>> getPortLinks();
+    
 }

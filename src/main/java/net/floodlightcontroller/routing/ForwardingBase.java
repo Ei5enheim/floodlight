@@ -71,7 +71,7 @@ public abstract class ForwardingBase
     protected static Logger log =
             LoggerFactory.getLogger(ForwardingBase.class);
 
-    protected static int OFMESSAGE_DAMPER_CAPACITY = 50000; // TODO: find sweet spot
+    protected static int OFMESSAGE_DAMPER_CAPACITY = 10000; // TODO: find sweet spot
     protected static int OFMESSAGE_DAMPER_TIMEOUT = 250; // ms 
 
     public static short FLOWMOD_DEFAULT_IDLE_TIMEOUT = 5; // in seconds
@@ -199,7 +199,7 @@ public abstract class ForwardingBase
             message="Failure writing flow mod",
             explanation="An I/O error occurred while writing a " +
                         "flow modification to a switch",
-            recommendation=LogMessageDoc.CHECK_SWITCH),            
+            recommendation=LogMessageDoc.CHECK_SWITCH)            
     })
     public boolean pushRoute(Route route, OFMatch match, 
                              Integer wildcard_hints,
@@ -265,7 +265,7 @@ public abstract class ForwardingBase
             ((OFActionOutput)fm.getActions().get(0)).setPort(outPort);
 
             try {
-                counterStore.updatePktOutFMCounterStore(sw, fm);
+                counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
                 if (log.isTraceEnabled()) {
                     log.trace("Pushing Route flowmod routeIndx={} " + 
                             "sw={} inPort={} outPort={}",
@@ -277,13 +277,14 @@ public abstract class ForwardingBase
                 messageDamper.write(sw, fm, cntx);
                 if (doFlush) {
                     sw.flush();
+                    counterStore.updateFlush();
                 }
 
                 // Push the packet out the source switch
                 if (sw.getId() == pinSwitch) {
                     // TODO: Instead of doing a packetOut here we could also 
                     // send a flowMod with bufferId set.... 
-                    pushPacket(sw, match, pi, outPort, cntx);
+                    pushPacket(sw, pi, false, outPort, cntx);
                     srcSwitchIncluded = true;
                 }
             } catch (IOException e) {
@@ -311,9 +312,9 @@ public abstract class ForwardingBase
     /**
      * Pushes a packet-out to a switch. If bufferId != BUFFER_ID_NONE we 
      * assume that the packetOut switch is the same as the packetIn switch
-     * and we will use the bufferId 
+     * and we will use the bufferId. In this case the packet can be null
      * Caller needs to make sure that inPort and outPort differs
-     * @param packet    packet data to send
+     * @param packet    packet data to send.
      * @param sw        switch from which packet-out is sent
      * @param bufferId  bufferId
      * @param inPort    input port
@@ -333,62 +334,8 @@ public abstract class ForwardingBase
             message="Failure writing packet out",
             explanation="An I/O error occurred while writing a " +
                     "packet out to a switch",
-            recommendation=LogMessageDoc.CHECK_SWITCH),            
+            recommendation=LogMessageDoc.CHECK_SWITCH)            
     })
-    public void pushPacket(IPacket packet, 
-                           IOFSwitch sw,
-                           int bufferId,
-                           short inPort,
-                           short outPort, 
-                           FloodlightContext cntx,
-                           boolean flush) {
-        
-        
-        if (log.isTraceEnabled()) {
-            log.trace("PacketOut srcSwitch={} inPort={} outPort={}", 
-                      new Object[] {sw, inPort, outPort});
-        }
-
-        OFPacketOut po =
-                (OFPacketOut) floodlightProvider.getOFMessageFactory()
-                                                .getMessage(OFType.PACKET_OUT);
-
-        // set actions
-        List<OFAction> actions = new ArrayList<OFAction>();
-        actions.add(new OFActionOutput(outPort, (short) 0xffff));
-
-        po.setActions(actions)
-          .setActionsLength((short) OFActionOutput.MINIMUM_LENGTH);
-        short poLength =
-                (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
-
-        // set buffer_id, in_port
-        po.setBufferId(bufferId);
-        po.setInPort(inPort);
-
-        // set data - only if buffer_id == -1
-        if (po.getBufferId() == OFPacketOut.BUFFER_ID_NONE) {
-            if (packet == null) {
-                log.error("BufferId is not set and packet data is null. " +
-                          "Cannot send packetOut. " +
-                        "srcSwitch={} inPort={} outPort={}",
-                        new Object[] {sw, inPort, outPort});
-                return;
-            }
-            byte[] packetData = packet.serialize();
-            poLength += packetData.length;
-            po.setPacketData(packetData);
-        }
-
-        po.setLength(poLength);
-
-        try {
-            counterStore.updatePktOutFMCounterStore(sw, po);
-            messageDamper.write(sw, po, cntx, flush);
-        } catch (IOException e) {
-            log.error("Failure writing packet out", e);
-        }
-    }
 
     /**
      * Pushes a packet-out to a switch.  The assumption here is that
@@ -396,19 +343,18 @@ public abstract class ForwardingBase
      * port of the packet-in and the outport are the same, the function will not 
      * push the packet-out.
      * @param sw        switch that generated the packet-in, and from which packet-out is sent
-     * @param match     OFmatch
      * @param pi        packet-in
+     * @param useBufferId  if true, use the bufferId from the packet in and 
+     * do not add the packetIn's payload. If false set bufferId to 
+     * BUFFER_ID_NONE and use the packetIn's payload 
      * @param outport   output port
      * @param cntx      context of the packet
      */
-    protected void pushPacket(IOFSwitch sw, OFMatch match, OFPacketIn pi, 
+    protected void pushPacket(IOFSwitch sw, OFPacketIn pi, 
+                           boolean useBufferId, 
                            short outport, FloodlightContext cntx) {
 
         if (pi == null) {
-            return;
-        } else if (pi.getInPort() == outport){
-            log.warn("Packet out not sent as the outport matches inport. {}",
-                     pi);
             return;
         }
 
@@ -419,15 +365,15 @@ public abstract class ForwardingBase
             if (log.isDebugEnabled()) {
                 log.debug("Attempting to do packet-out to the same " + 
                           "interface as packet-in. Dropping packet. " + 
-                          " SrcSwitch={}, match = {}, pi={}", 
-                          new Object[]{sw, match, pi});
+                          " SrcSwitch={}, pi={}", 
+                          new Object[]{sw, pi});
                 return;
             }
         }
 
         if (log.isTraceEnabled()) {
-            log.trace("PacketOut srcSwitch={} match={} pi={}", 
-                      new Object[] {sw, match, pi});
+            log.trace("PacketOut srcSwitch={} pi={}", 
+                      new Object[] {sw, pi});
         }
 
         OFPacketOut po =
@@ -443,30 +389,23 @@ public abstract class ForwardingBase
         short poLength =
                 (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
 
-        // If the switch doens't support buffering set the buffer id to be none
-        // otherwise it'll be the the buffer id of the PacketIn
-        if (sw.getBuffers() == 0) {
-            // We set the PI buffer id here so we don't have to check again below
-            pi.setBufferId(OFPacketOut.BUFFER_ID_NONE);
-            po.setBufferId(OFPacketOut.BUFFER_ID_NONE);
-        } else {
+        if (useBufferId) {
             po.setBufferId(pi.getBufferId());
+        } else {
+            po.setBufferId(OFPacketOut.BUFFER_ID_NONE);
         }
-
-        po.setInPort(pi.getInPort());
-
-        // If the buffer id is none or the switch doesn's support buffering
-        // we send the data with the packet out
-        if (pi.getBufferId() == OFPacketOut.BUFFER_ID_NONE) {
+        
+        if (po.getBufferId() == OFPacketOut.BUFFER_ID_NONE) {
             byte[] packetData = pi.getPacketData();
             poLength += packetData.length;
             po.setPacketData(packetData);
         }
 
+        po.setInPort(pi.getInPort());
         po.setLength(poLength);
 
         try {
-            counterStore.updatePktOutFMCounterStore(sw, po);
+            counterStore.updatePktOutFMCounterStoreLocal(sw, po);
             messageDamper.write(sw, po, cntx);
         } catch (IOException e) {
             log.error("Failure writing packet out", e);
@@ -518,7 +457,7 @@ public abstract class ForwardingBase
         po.setLength(poLength);
 
         try {
-            counterStore.updatePktOutFMCounterStore(sw, po);
+            counterStore.updatePktOutFMCounterStoreLocal(sw, po);
             if (log.isTraceEnabled()) {
                 log.trace("write broadcast packet on switch-id={} " + 
                         "interfaces={} packet-out={}",
@@ -602,7 +541,7 @@ public abstract class ForwardingBase
             message="Failure writing deny flow mod",
             explanation="An I/O error occurred while writing a " +
                     "deny flow mod to a switch",
-            recommendation=LogMessageDoc.CHECK_SWITCH),            
+            recommendation=LogMessageDoc.CHECK_SWITCH)            
     })
     public static boolean
             blockHost(IFloodlightProviderService floodlightProvider,
@@ -632,7 +571,7 @@ public abstract class ForwardingBase
              .setWildcards(OFMatch.OFPFW_ALL & ~OFMatch.OFPFW_DL_SRC
                      & ~OFMatch.OFPFW_IN_PORT);
         fm.setCookie(cookie)
-          .setHardTimeout((short) hardTimeout)
+          .setHardTimeout(hardTimeout)
           .setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
           .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
           .setBufferId(OFPacketOut.BUFFER_ID_NONE)

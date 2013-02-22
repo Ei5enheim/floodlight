@@ -17,6 +17,13 @@
 
 package net.floodlightcontroller.core.internal;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.openflow.protocol.OFFeaturesReply;
+import org.openflow.protocol.OFMessage;
+import org.openflow.protocol.statistics.OFDescriptionStatistics;
+
 /**
  * Wrapper class to hold state for the OpenFlow switch connection
  * @author readams
@@ -53,12 +60,9 @@ class OFChannelState {
     protected volatile HandshakeState hsState = HandshakeState.START;
     protected boolean hasGetConfigReply = false;
     protected boolean hasDescription = false;
+    protected boolean switchBindingDone = false;
     
-    // The firstRoleReplyRecevied flag indicates if we have received the
-    // first role reply message on this connection (in response to the 
-    // role request sent after the handshake). If role support is disabled
-    // on the controller we also set this flag to true. 
-    // The flag is used to decide if the flow table should be wiped
-    // @see Controller.handleRoleReplyMessage()
-    protected boolean firstRoleReplyReceived = false;
+    protected OFFeaturesReply featuresReply = null;
+    protected OFDescriptionStatistics description = null;
+    protected List<OFMessage> queuedOFMessages = new ArrayList<OFMessage>();
 }

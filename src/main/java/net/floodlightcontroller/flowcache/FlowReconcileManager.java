@@ -1,3 +1,19 @@
+/**
+ *    Copyright 2013, Big Switch Networks, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *    not use this file except in compliance with the License. You may obtain
+ *    a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *    License for the specific language governing permissions and limitations
+ *    under the License.
+ **/
+
 package net.floodlightcontroller.flowcache;
 
 import java.util.ArrayList;
@@ -10,6 +26,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
@@ -60,11 +77,12 @@ public class FlowReconcileManager
     String controllerPktInCounterName;
     protected SimpleCounter lastPacketInCounter;
     
-    protected static int MAX_SYSTEM_LOAD_PER_SECOND = 50000;
+    protected static int MAX_SYSTEM_LOAD_PER_SECOND = 10000;
     /** a minimum flow reconcile rate so that it won't stave */
-    protected static int MIN_FLOW_RECONCILE_PER_SECOND = 1000;
+    protected static int MIN_FLOW_RECONCILE_PER_SECOND = 200;
     
-    /** once per second */
+    /** start flow reconcile in 10ms after a new reconcile request is received.
+     *  The max delay is 1 second. */
     protected static int FLOW_RECONCILE_DELAY_MILLISEC = 10;
     protected Date lastReconcileTime;
     
@@ -72,7 +90,7 @@ public class FlowReconcileManager
     protected static final String EnableConfigKey = "enable";
     protected boolean flowReconcileEnabled;
     
-    public int flowReconcileThreadRunCount;
+    public AtomicInteger flowReconcileThreadRunCount;
     
     @Override
     public synchronized void addFlowReconcileListener(
@@ -215,7 +233,7 @@ public class FlowReconcileManager
             flowReconcileEnabled = false;
         }
         
-        flowReconcileThreadRunCount = 0;
+        flowReconcileThreadRunCount = new AtomicInteger(0);
         lastReconcileTime = new Date(0);
         logger.debug("FlowReconcile is {}", flowReconcileEnabled);
     }
@@ -251,6 +269,9 @@ public class FlowReconcileManager
                                            packetInName);
     }
     
+    protected void updateFlush() {
+        // No-OP
+    }
     /**
      * Feed the flows into the flow reconciliation pipeline.
      * @return true if more flows to be reconciled
@@ -308,7 +329,9 @@ public class FlowReconcileManager
                     break;
                 }
             }
-            flowReconcileThreadRunCount++;
+            // Flush the flowCache counters.
+            updateFlush();
+            flowReconcileThreadRunCount.incrementAndGet();
         } else {
             if (logger.isTraceEnabled()) {
                 logger.trace("No flow to be reconciled.");

@@ -1,18 +1,38 @@
+/**
+ *    Copyright 2013, Big Switch Networks, Inc.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License"); you may
+ *    not use this file except in compliance with the License. You may obtain
+ *    a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *    License for the specific language governing permissions and limitations
+ *    under the License.
+ **/
+
 package net.floodlightcontroller.util;
 
 import static org.junit.Assert.*;
 import java.io.IOException;
+import java.net.SocketAddress;
 
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.Lock;
 
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IOFMessageListener;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.IFloodlightProviderService.Role;
+import net.floodlightcontroller.core.internal.Controller;
+import net.floodlightcontroller.threadpool.IThreadPoolService;
 
 import org.jboss.netty.channel.Channel;
 import org.openflow.protocol.OFFeaturesReply;
@@ -94,12 +114,6 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     @Override
     public void disconnectOutputStream() {
         assertTrue("Unexpected method call", false);
-    }
-    
-    @Override
-    public Channel getChannel() {
-        assertTrue("Unexpected method call", false);
-        return null;
     }
     
     @Override
@@ -189,6 +203,12 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     }
     
     @Override
+    public SocketAddress getInetAddress() {
+        assertTrue("Unexpected method call", false);
+        return null;
+    }
+    
+    @Override
     public Map<Object, Object> getAttributes() {
         assertTrue("Unexpected method call", false);
         return null;
@@ -225,15 +245,9 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     }
     
     @Override
-    public Role getRole() {
+    public Role getHARole() {
         assertTrue("Unexpected method call", false);
         return null;
-    }
-    
-    @Override
-    public boolean isActive() {
-        assertTrue("Unexpected method call", false);
-        return false;
     }
     
     @Override
@@ -304,7 +318,7 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     }
 
     @Override
-    public Future<OFFeaturesReply> getFeaturesReplyFromSwitch()
+    public Future<OFFeaturesReply> querySwitchFeaturesReply()
             throws IOException {
         // TODO Auto-generated method stub
         return null;
@@ -344,6 +358,66 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     public byte getTables() {
         // TODO Auto-generated method stub
         return 0;
+    }
+
+    @Override
+    public void setChannel(Channel channel) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void setFloodlightProvider(Controller controller) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void setThreadPoolService(IThreadPoolService threadPool) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public Lock getListenerReadLock() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Lock getListenerWriteLock() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void setHARole(Role role, boolean haRoleReplyReceived) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public OFPortType getPortType(short port_num) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public boolean isFastPort(short port_num) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public List<Short> getUplinkPorts() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public boolean attributeEquals(String name, Object other) {
+        fail("Unexpected method call");
+        return false;
     }
 
 }
