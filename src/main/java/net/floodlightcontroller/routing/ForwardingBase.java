@@ -361,7 +361,8 @@ public abstract class ForwardingBase
         // The assumption here is (sw) is the switch that generated the 
         // packet-in. If the input port is the same as output port, then
         // the packet-out should be ignored.
-        if (pi.getInPort() == outport) {
+        //$$ disabling the check for now. \\
+        /*if (pi.getInPort() == outport) {
             if (log.isDebugEnabled()) {
                 log.debug("Attempting to do packet-out to the same " + 
                           "interface as packet-in. Dropping packet. " + 
@@ -369,7 +370,7 @@ public abstract class ForwardingBase
                           new Object[]{sw, pi});
                 return;
             }
-        }
+        }*/
 
         if (log.isTraceEnabled()) {
             log.trace("PacketOut srcSwitch={} pi={}", 

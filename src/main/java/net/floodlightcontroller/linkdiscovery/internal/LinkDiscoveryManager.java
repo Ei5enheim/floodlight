@@ -102,16 +102,19 @@ import org.slf4j.LoggerFactory;
  * This class sends out LLDP messages containing the sending switch's datapath
  * id as well as the outgoing port number. Received LLrescDP messages that match
  * a known switch cause a new LinkTuple to be created according to the invariant
- * rules listed below. This new LinkTuple is also passed to routing if it exists
+ * rules listed below. This new LinkTuple is also passed to routing, if it exists,
  * to trigger updates. This class also handles removing links that are
  * associated to switch ports that go down, and switches that are disconnected.
- * Invariants: -portLinks and switchLinks will not contain empty Sets outside of
- * critical sections -portLinks contains LinkTuples where one of the src or dst
- * SwitchPortTuple matches the map key -switchLinks contains LinkTuples where
- * one of the src or dst SwitchPortTuple's id matches the switch id -Each
- * LinkTuple will be indexed into switchLinks for both src.id and dst.id, and
- * portLinks for each src and dst -The updates queue is only added to from
- * within a held write lock
+ * Invariants: 
+ *              -portLinks and switchLinks will not contain empty Sets outside of
+ *                  critical sections 
+ *              -portLinks contains LinkTuples where one of the src or dst
+ *                  SwitchPortTuple matches the map key 
+ *              -switchLinks contains LinkTuples where one of the src or dst 
+ *                  SwitchPortTuple's id matches the switch id 
+ *              -Each LinkTuple will be indexed into switchLinks for both src.id
+ *                  and dst.id, and portLinks for each src and dst 
+ *              -The updates queue is only added to from within a held write lock
  */
 @LogMessageCategory("Network Topology")
 public class LinkDiscoveryManager implements IOFMessageListener,

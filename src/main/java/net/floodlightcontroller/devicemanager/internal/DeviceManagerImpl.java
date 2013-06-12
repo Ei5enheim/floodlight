@@ -149,6 +149,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
 
     /**
      * The entity classifier currently in use
+     * This will always return IPV4, VLAN as the entity
      */
     protected IEntityClassifierService entityClassifier;
 
@@ -159,12 +160,16 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
 
         /**
          * The class index
+         * This has a hashmap from IndexEntity to device key.
+         * IndexEntity is nothing but <Entity, Keyfields> 
          */
         protected DeviceUniqueIndex classIndex;
 
         /**
          * This stores secondary indices over the fields in the device for the
          * class
+         * you can have various combinations of keyfields. This gives us the map for a 
+         * specific keyfield set
          */
         protected Map<EnumSet<DeviceField>, DeviceIndex> secondaryIndexMap;
 

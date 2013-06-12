@@ -45,7 +45,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
     protected ICounterStoreService counterStore;
     protected static Logger logger;
     byte[] destIP, sourceIP, sourceMAC, destMAC;
-    
+    HashMap<String, String> arp_table; 
+  
     // Inherited from Class package
     public String getName() {
         return "MACTracker";
@@ -101,15 +102,39 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         logger = LoggerFactory.getLogger(MACTracker.class);
         counterStore =
                 context.getServiceImpl(ICounterStoreService.class);
-
+        arp_table = new HashMap<String, String> ();
     }
 
     @Override
     public void startUp(FloodlightModuleContext context) {
+
+        String ipAddr, macAddr;
+        BufferedReader br = null;
+    
+        try {
+
+            br = new BufferedReader(new FileReader(
+                                    new File("/home/rajesh/Documents/UNC/RENCI/Open Flow/floodlight/", "ARPtable"))); 
+        } catch (Exception io) {
+    
+            System.out.println("caught an Exception while opening the file");
+        }   
+
+        String line = null;
+        String[] tokens;
+
         // calling the controller to register for packet_in message 
         logger.info("\n ****Started the module****\n");
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
-
+        try { 
+            while ((line = br.readLine()) != null) {
+                tokens = line.split("\\s");
+                System.out.println(line);
+                arp_table.put(tokens[0], tokens[1]); 
+            }
+        } catch (Exception io) {
+            System.out.println("caught an Exception while reading the file"); 
+        }
     }
 
     /*  This is the method called by the controlller to tell the 
@@ -121,7 +146,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
 
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                                               IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        String dstMACAddr = "00:bb:cc:dd:ee:ff";
+        //String dstMACAddr = "00:bb:cc:dd:ee:ff";
+        String dstMACAddr = null;
         String sourceMACAddr = "00:00:5E:19:21:68";
         
         Long sourceMACHash = Ethernet.toLong(eth.getSourceMACAddress());
@@ -137,12 +163,13 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                     sourceIP = arp_pkt.getSenderProtocolAddress();
                     destIP = arp_pkt.getTargetProtocolAddress();
                     sourceMAC = arp_pkt.getSenderHardwareAddress();
+                    dstMACAddr = arp_table.get(IPv4.fromIPv4Address(IPv4.toIPv4Address(destIP))); 
                     destMAC = Ethernet.toMACAddress(dstMACAddr);
                     logger.info("\n ******** ARP request - from address: {} *********",
                             IPv4.fromIPv4Address(IPv4.toIPv4Address(sourceIP)));
 
                     logger.info("\n******** ARP request - HW address {}, address of {} *********",
-                            HexString.toHexString(sourceMACHash),
+                            HexString.toHexString(sourceMAC),
                             IPv4.fromIPv4Address(IPv4.toIPv4Address(destIP)));
 
                     //exchanging source and dest fields in the recvd request
@@ -157,6 +184,7 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                     eth = (Ethernet) eth.setPayload((IPacket)arp_pkt);
                     //logger.info("\n****calling push packet*****");
                     pushPacket(sw, msg, cntx);
+                    return Command.STOP;
                 }
             }
         } 
@@ -168,7 +196,7 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                 IPv4.fromIPv4Address(IPv4.toIPv4Address(destIP)));
         logger.info("******** ARP request - on switch {}  *********\n", sw.getId());*/
   
-        return Command.STOP;
+        return Command.CONTINUE;
     }
 
     protected void pushPacket (IOFSwitch sw, OFMessage msg, 
