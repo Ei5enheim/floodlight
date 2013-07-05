@@ -159,12 +159,14 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
                     IP = getValue("host", element);
                     port = getValue("socket-port", element);
                     map.put(nodeNumber++, "tcp://"+IP+":"+port); 
+                    System.out.println("*********host="+IP+"********");
                 }
             }
         } catch (Exception e) {
             System.err.println("Caught an Exception");
             e.printStackTrace();
         }
+        System.out.println("*******was to read the map*******");
     }
 
     private int getRandomInt(int MAX)
@@ -280,6 +282,5 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
      {
 	return ("0");
      }  
-
 }
 
