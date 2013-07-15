@@ -20,6 +20,8 @@ public interface IKeyValueStoreService extends IFloodlightService
     
     public String getIP2MACTable();
 
+    public String getPathIDStore();
+
     /*
      * public Collection<Object> getAll(String storeName);
      * Right now voldemort doesn't support 

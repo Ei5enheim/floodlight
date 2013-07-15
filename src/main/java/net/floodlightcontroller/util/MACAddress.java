@@ -159,6 +159,17 @@ public class MACAddress {
         return Arrays.hashCode(this.address);
     }
 
+    public static String toString(byte[] address) {
+        StringBuilder builder = new StringBuilder();
+        for (byte b: address) {
+            if (builder.length() > 0) {
+                builder.append(":");
+            }
+            builder.append(String.format("%02X", b & 0xFF));
+        }
+        return builder.toString();
+    }
+
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();

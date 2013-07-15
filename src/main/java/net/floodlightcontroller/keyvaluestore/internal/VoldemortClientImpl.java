@@ -35,12 +35,14 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.versioning.Versioned;
+import voldemort.versioning.Version;
 
 // use the update from Idevicemanager to find a device and use the hash table to get the domain ID.
 // need to change the forwarding code
@@ -238,12 +240,22 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
     public boolean addRUpdate (String storeName, Object key, Object value)
     {
         int index = getStoreIndex(storeName);
+        Version v = null;
 
         if (index == -1)
             return (false);
-        if (client[index][getRandomInt(SERVERS)].put(key, value) == null)
+        try {
+            v = client[index][getRandomInt(SERVERS)].put(key, value);
+            if (v == null)
+                return (false);
+            if (logger.isTraceEnabled())
+                logger.trace("Current version is {}", v.toString());
+        } catch (ObsoleteVersionException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("caught exception {}" + e.getMessage());
+            }
             return (false);
-
+        }
         return (true);
     }
 
@@ -268,7 +280,7 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
             return (null);
        
         if ((value = client[index][getRandomInt(SERVERS)].get(key)) != null)
-            return (value);
+            return (value.getValue());
 
         return (null);
     } 
@@ -276,6 +288,11 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
      public String getIP2MACTable() 
      {
 	return (storeNames[MAC_STORE]);
+     }  
+
+     public String getPathIDStore() 
+     {
+	return (storeNames[PATHID_STORE]);
      }  
 
      public String getDomain(String IP)

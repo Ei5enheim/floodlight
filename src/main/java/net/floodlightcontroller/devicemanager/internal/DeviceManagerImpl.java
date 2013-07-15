@@ -69,8 +69,8 @@ import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.topology.ITopologyListener;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.util.MultiIterator;
-import static net.floodlightcontroller.devicemanager.internal.
-DeviceManagerImpl.DeviceUpdate.Change.*;
+
+import static net.floodlightcontroller.devicemanager.internal.DeviceManagerImpl.DeviceUpdate.Change.*;
 
 import org.openflow.protocol.OFMatchWithSwDpid;
 import org.openflow.protocol.OFMessage;
@@ -410,6 +410,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
         Iterator<Device> deviceIterator = null;
         if (index == null) {
             // Do a full table scan
+            // here we are getting the entire devices 
             deviceIterator = deviceMap.values().iterator();
         } else {
             // index lookup
@@ -419,10 +420,14 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                                        switchDPID,
                                        switchPort,
                                        null);
+            // Here we get Collection<long> as the return, but we need 
+            // devices not keys.. so we DeviceIndexInterator
             deviceIterator =
                     new DeviceIndexInterator(this, index.queryByEntity(entity));
         }
-
+        
+        // This is to check if the devices retrieved match the required values
+        // the below iterator is a subclass of the fileriterator
         DeviceIterator di =
                 new DeviceIterator(deviceIterator,
                                    null,
@@ -479,7 +484,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                                             index.queryByEntity(entity));
         }
         iterators.add(iter);
-        
+       
+        // this is basically joining all the iterators 
         return new MultiIterator<Device>(iterators.iterator());
     }
     
@@ -825,8 +831,13 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
     private int getSrcNwAddr(Ethernet eth, long dlAddr) {
         if (eth.getPayload() instanceof ARP) {
             ARP arp = (ARP) eth.getPayload();
+            // ARP packet contains source's MAC address as well as IP address
+	    logger.info("packet protocol type {}, compare against {}, hw addr {}, {}", new Object[] {arp.getProtocolType(), 								ARP.PROTO_TYPE_IP,
+							Ethernet.toLong(arp.getSenderHardwareAddress()),
+							dlAddr});
             if ((arp.getProtocolType() == ARP.PROTO_TYPE_IP) &&
                     (Ethernet.toLong(arp.getSenderHardwareAddress()) == dlAddr)) {
+		logger.info("returning the source protocol address");
                 return IPv4.toIPv4Address(arp.getSenderProtocolAddress());
             }
         } 
@@ -852,6 +863,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
 
         short vlan = eth.getVlanID();
         int nwSrc = getSrcNwAddr(eth, dlAddr);
+	logger.info("source network address is {}", nwSrc);
         return new Entity(dlAddr,
                           ((vlan >= 0) ? vlan : null),
                           ((nwSrc != 0) ? nwSrc : null),
@@ -1052,12 +1064,17 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                 // use the entity classifier for find the classes for the
                 // entity. Look up the entity in the returned class'
                 // class entity index.
+                
+                // entity class here is the class that holds the set of non-null keyfields of 
+                // of the packet.
                 entityClass = entityClassifier.classifyEntity(entity);
                 if (entityClass == null) {
+                    // if no keyfields are non-null then we cannot classify it
                     // could not classify entity. No device
                     device = null;
                     break;
                 }
+                
                 ClassState classState = getClassState(entityClass);
 
                 if (classState.classIndex != null) {

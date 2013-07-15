@@ -133,16 +133,20 @@ public class OFMessageDamper {
     public boolean write(IOFSwitch sw, OFMessage msg,
                         FloodlightContext cntx, boolean flush) 
             throws IOException {
+	
         if (! msgTypesToCache.contains(msg.getType())) {
+	    
             sw.write(msg, cntx);
             if (flush) {
                 sw.flush();
             }
             return true;
         }
-        
+       
         DamperEntry entry = new DamperEntry(msg, sw);
+	
         if (cache.update(entry)) {
+	    System.out.println("**********Not writing the message " + msg.toString()); 
             // entry exists in cache. Dampening.
             return false; 
         } else {

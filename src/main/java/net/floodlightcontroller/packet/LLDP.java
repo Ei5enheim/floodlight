@@ -38,6 +38,7 @@ public class LLDP extends BasePacket {
     public LLDP() {
         this.optionalTLVList = new ArrayList<LLDPTLV>();
         this.ethType = Ethernet.TYPE_LLDP;
+	
     }
 
     /**

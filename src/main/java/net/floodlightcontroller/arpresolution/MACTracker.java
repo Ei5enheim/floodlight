@@ -23,11 +23,12 @@ import net.floodlightcontroller.core.module.IFloodlightService;
 //interface allows you to interact with connected switches
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.packet.Ethernet;
-// A utility class to convert string bytes to a hex string with ":" as seperator
-
+import net.floodlightcontroller.util.OFMessageDamper;
+import net.floodlightcontroller.util.TimedCache;
 import net.floodlightcontroller.util.MACAddress;
 import net.floodlightcontroller.counter.ICounterStoreService;
 import net.floodlightcontroller.keyvaluestore.IKeyValueStoreService;
+
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
 import org.openflow.protocol.OFPacketOut;
@@ -41,11 +42,11 @@ import org.slf4j.LoggerFactory;
 
 public class MACTracker implements IOFMessageListener, IFloodlightModule
 {
-
     // This interface is used as a medium to talk to the controller.
     protected IFloodlightProviderService floodlightProvider;
     protected ICounterStoreService counterStore;
     protected IKeyValueStoreService kvStoreService;
+    protected OFMessageDamper messageDamper;
     protected static Logger logger;
     byte[] destIP, sourceIP, sourceMAC, dstMAC;
   
@@ -70,7 +71,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         // TODO Auto-generated method stub
         return (type.equals(OFType.PACKET_IN) && 
                 (name.equals("learningswitch") || 
-                 name.equals("forwarding"))); 
+                 name.equals("forwarding")) ||
+                 name.equals("circuitswitchingimpl")); 
     }
 
     @Override
@@ -109,13 +111,16 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
     }
 
     @Override
-    public void startUp(FloodlightModuleContext context) {
-
+    public void startUp(FloodlightModuleContext context)
+    {
         //BufferedReader br = null;
 
         // calling the controller to register for packet_in message 
         logger.info("\n ****Starting the ARP module****\n");
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
+        messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
+                                            EnumSet.of(OFType.PACKET_OUT),
+                                            OFMESSAGE_DAMPER_TIMEOUT);
  
         /*try {
 
@@ -147,15 +152,24 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         String storeName = kvStoreService.getIP2MACTable();
 
         String MACString = (String) kvStoreService.get(storeName, dstIP); 
-   
-        logger.info("retrieved value {} for key {}", MACString, IPv4.fromIPv4Address(dstIP));  
+        
         if (MACString != null) {
+            //if (logger.isTraceEnabled())
+                logger.info ("retrieved value {} for key {}",
+                            MACString, IPv4.fromIPv4Address(dstIP));
             MACString = MACString.substring(0, MACString.indexOf(','));
             return (Ethernet.toMACAddress(MACString));
         }
         return (null);
     }
 
+    public boolean isBroadcast(byte[] address) {
+        for (byte b : address) {
+            if (b != 0) // checks if equal to 0xff
+                return false;
+        }
+        return true;
+    }
     /*  This is the method called by the controlller to tell the 
      *  recvrs about the packet_in message
      *  FloodlightContext has a storage field where the payload
@@ -174,11 +188,15 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                     sourceIP = arp_pkt.getSenderProtocolAddress();
                     destIP = arp_pkt.getTargetProtocolAddress();
                     sourceMAC = arp_pkt.getSenderHardwareAddress();
-                    dstMAC = getDstMAC(IPv4.toIPv4Address(destIP)); 
+                    dstMAC = arp_pkt.getTargetHardwareAddress();
+                    logger.info("MAC  address of the destination is {}", dstMAC); 
+                    if (isBroadcast(dstMAC)) {
+                        logger.info("found a BARP packet");
+                        dstMAC = getDstMAC(IPv4.toIPv4Address(destIP)); 
     
-                    if (dstMAC == null)
-                        return Command.CONTINUE;
-
+                        if (dstMAC == null)
+                            return Command.CONTINUE;
+                    }
                     //exchanging source and dest fields in the recvd request
                     arp_pkt = arp_pkt.setSenderHardwareAddress(dstMAC); 
                     arp_pkt = arp_pkt.setTargetHardwareAddress(sourceMAC);
@@ -190,7 +208,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                     eth = eth.setSourceMACAddress(dstMAC); 
                     eth = (Ethernet) eth.setPayload((IPacket)arp_pkt);
                     //logger.info("\n****calling push packet*****");
-                    pushPacket(sw, msg, cntx);
+                    pushPacket(sw, msg, cntx, IPv4.toIPv4Address(destIP),
+                                IPv4.toIPv4Address(sourceIP));
                     return Command.STOP;
                 }
             }
@@ -199,9 +218,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
     }
 
     protected void pushPacket (IOFSwitch sw, OFMessage msg, 
-                               FloodlightContext cntx) {
-
-        logger.info("\n****Sending out ARP reply packet*****");
+                               FloodlightContext cntx, Integer dstIP, Integer srcIP)
+    {
         OFPacketIn pi = (OFPacketIn) msg;
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                 IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
@@ -233,11 +251,21 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
 
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, po);
-            sw.write(po, null);
+            if (messageDamper.write(sw, po, cntx)) {
+                logger.info("writting to the damper from MAC tracker + swDPID:"+ sw.getId());
+                sw.flush(); 
+                counterStore.updateFlush();
+                if (logger.isDebugEnabled()) {
+                    logger.debug("sent out ARP reply for the host IP {} as host"+
+                                 " source IP {}", IPv4.fromIPv4Address(dstIP),
+                                 IPv4.fromIPv4Address(srcIP));
+                }
+            }
         } catch (IOException e) {
             logger.error("Failure writing packet out", e);
         }
     } 
+
+    protected static int OFMESSAGE_DAMPER_CAPACITY = 10000; 
+    protected static int OFMESSAGE_DAMPER_TIMEOUT = 30000; // ms 
 }
-
-
