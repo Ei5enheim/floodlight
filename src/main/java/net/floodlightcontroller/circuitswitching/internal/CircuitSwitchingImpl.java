@@ -153,9 +153,6 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
     }
 
     // CircuitSwitching API
-
-    /* unaswered query .. do broadcast packets go to the controller?
-     */
     @Override
     public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi,
                                           IRoutingDecision decision, 
@@ -209,11 +206,11 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                 doForwardFlow(sw, pi, cntx, false);
             }
         }
-        
         return Command.CONTINUE;
     }
     
-    protected void doDropFlow(IOFSwitch sw, OFPacketIn pi, IRoutingDecision decision, FloodlightContext cntx) {
+    protected void doDropFlow(IOFSwitch sw, OFPacketIn pi, IRoutingDecision decision, FloodlightContext cntx)
+    {
         // initialize match structure and populate it using the packet
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
@@ -248,14 +245,15 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
         }
     }
 
-    OFMatch getMatchClone (OFMatch match)
+    // Utility methods
+    private OFMatch getMatchClone (OFMatch match)
     {
         OFMatch cn = null;
         cn = match.clone();
         if (cn != null)
             return (cn);
-
-        log.info("Error in cloning match structure");
+        if (log.isTraceEnabled())
+            log.trace("Error in cloning match structure");
         return (match);
     }
 
@@ -279,18 +277,21 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
          for (int i = 5; i >= 0; i--)
           {
               temp =  v & mask;
-              result[i] = (byte) (temp >> (8* (5-i)));
+              result[i] = (byte) (temp >> (8 * (5-i)));
               mask = mask << 8;
           }  
           return (result);
     }
 
-    private LinkedList<byte[]> addRGetPathID (long dstSwID, long srcSwID, int cookie) 
+    private LinkedList<byte[]> addRGetPathID (long dstSwID, long srcSwID,
+                                                int cookie) 
     {
         boolean result = false;
         String key = String.valueOf(dstSwID) + "," + String.valueOf(srcSwID);
-        List <Object> valuesList = (List <Object>)kvStoreClient.get(PathIDStoreName, key);
-        //values are going to be in an array and they are going to be in pairs [dstmac followed by the source]
+        List <Object> valuesList = (List <Object>)kvStoreClient.get(
+                                                        PathIDStoreName, key);
+        // values are going to be in an array and they are going 
+        // to be in pairs [dstmac followed by the source]
         long srcMac = 0, dstMac = 0;
         
         if (valuesList == null)
@@ -302,8 +303,8 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
             dstMac = (Long) valuesList.get(0);
             srcMac = (Long) valuesList.get(1);
             if (log.isTraceEnabled())
-                log.info("PATHID {},{} has already been generated in the past", dstMac, srcMac);
-
+                log.trace("PATHID {},{} has already been generated in the past",
+                            dstMac, srcMac);
             LinkedList<byte[]> rv = new LinkedList<byte[]>();
             rv.add(long2ByteArray(dstMac));
             rv.add(long2ByteArray(srcMac));
@@ -314,7 +315,9 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
         LinkedList<byte[]> dlHeaders = getPathID(dstSwID, srcSwID, cookie);
         valuesList.add(byteArray2Long(dlHeaders.get(0)));
         valuesList.add(byteArray2Long(dlHeaders.get(1)));
-        log.info("PATHID {},{} is being updated", valuesList.get(0), valuesList.get(1));
+        if (log.isTraceEnabled())
+            log.trace("PATHID {},{} is being updated", valuesList.get(0),
+                                                        valuesList.get(1));
         result = kvStoreClient.addRUpdate(PathIDStoreName, key, valuesList); 
         if (!result && log.isDebugEnabled())
            log.debug("PATHID store update failed");  
@@ -342,24 +345,18 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
         rwHeaders.addLast(dlHeader.get(0));
         rwHeaders.addLast(dlHeader.get(1)); 
         matchList.addFirst(match);
-        /*
-        log.info("match headers on the destination node dmac {}, srcMac {}", MACAddress.toString(matchList.get(0).getDataLayerDestination()), MACAddress.toString(matchList.get(0).getDataLayerSource()));
-        log.info("rewrite headers on the destination node dmac {}, srcMac {}", MACAddress.toString(rwHeaders.get(0)), MACAddress.toString(rwHeaders.get(1)));
-        log.info("rewrite headers on the source node dmac {}, srcMac {}", MACAddress.toString(rwHeaders.get(2)), MACAddress.toString(rwHeaders.get(3)));
-        log.info("match headers on the source node dmac {}, srcMac {}", MACAddress.toString(matchList.get(1).getDataLayerDestination()), MACAddress.toString(matchList.get(1).getDataLayerSource()));
-        */
         return (matchList); 
     }
 
     private boolean checkForAP(IDevice device, IOFSwitch sw)
     {
         long dpID = -1;
+
         for (SwitchPort ap : device.getAttachmentPoints()) {
             dpID = ap.getSwitchDPID();
             if (sw.getId() == dpID)
                 return (true);
         }
-        
         return (false);
     }
 
@@ -367,7 +364,9 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                  FloodlightContext cntx,
                                  boolean requestFlowRemovedNotifn)
     {
-        log.info("Forwarding the packet {}", pi);
+        LinkedList<byte[]> pinSwitchRWHeaders = null;
+        Integer srcSwOutport = null;
+        boolean pinSwitchFound = false;
         // Check if we have the location of the destination
         IDevice dstDevice = 
                 IDeviceService.fcStore.
@@ -390,9 +389,9 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
             }
             
             //TODO remove this check if possible
-
             if (!checkForAP(srcDevice, sw)) {
-                log.info("******received packetin for device {} on non-home switch {}*****", srcDevice, sw);
+                log.info("******received packetin for device {} on non-home"+
+                            " switch {}*****", srcDevice, sw);
                 return;
             }
             // Validate that we have a destination known on the same island
@@ -432,12 +431,36 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                 return;
             }
 
-            // the below statements should be moved into the loop
-            // for full fledged demo
-            LinkedList<byte[]> rwHeaders = new LinkedList<byte[]>(); 
-            LinkedList<OFMatch> matchList = getMatchList(pi, dstSwDpid,
-                                                         sw.getId(), rwHeaders);
-            LinkedList<Integer> wildCards_List = new LinkedList<Integer>();
+            /*
+             * for full fledged demo, need to have same 
+             * circuit ID throught out the network. Should be possible by 
+             * having a home dpid inside device. what if a device roams
+             * and the concurrency?
+             */
+            LinkedList<byte[]> rwHeaders = null; 
+            LinkedList<OFMatch> matchList = null;
+            LinkedList<Integer> wildCards_List = null;
+            long cookie = AppCookie.makeCookie(FORWARDING_APP_ID, 0);
+            // if there is prior routing decision use wildcard
+            Integer wildcard_hints = null;
+            IRoutingDecision decision = null;
+            if (cntx != null) {
+                decision = IRoutingDecision.rtStore
+                                            .get(cntx, IRoutingDecision.CONTEXT_DECISION);
+            }
+            if (decision != null) {
+                wildcard_hints = decision.getWildcards();
+            } else {
+                // L2 only wildcard if there is no prior route decision
+                wildcard_hints = ((Integer) sw.getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
+                                                .intValue()
+                                                & ~OFMatch.OFPFW_IN_PORT
+                                                & ~OFMatch.OFPFW_DL_VLAN
+                                                & ~OFMatch.OFPFW_DL_SRC
+                                                & ~OFMatch.OFPFW_DL_DST
+                                                & ~OFMatch.OFPFW_NW_SRC_MASK
+                                                & ~OFMatch.OFPFW_NW_DST_MASK;
+            }
 
             // Install all the routes where both src and dst have attachment
             // points.  Since the lists are stored in sorted order we can 
@@ -475,30 +498,24 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                                         dstDap.getSwitchDPID(),
                                                         dstDap.getPort()});
                             }
-                            long cookie = 
-                                    AppCookie.makeCookie(FORWARDING_APP_ID, 0);
-                            
-                            // if there is prior routing decision use wildcard
-                            Integer wildcard_hints = null;
-                            IRoutingDecision decision = null;
-                            if (cntx != null) {
-                                decision = IRoutingDecision.rtStore
-                                                .get(cntx, IRoutingDecision.CONTEXT_DECISION);
-                            }
-                            if (decision != null) {
-                                wildcard_hints = decision.getWildcards();
-                            } else {
-                            	// L2 only wildcard if there is no prior route decision
-                                wildcard_hints = ((Integer) sw
-                                        .getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
-                                        .intValue()
-                                        & ~OFMatch.OFPFW_IN_PORT
-                                        & ~OFMatch.OFPFW_DL_VLAN
-                                        & ~OFMatch.OFPFW_DL_SRC
-                                        & ~OFMatch.OFPFW_DL_DST
-                                        & ~OFMatch.OFPFW_NW_SRC_MASK
-                                        & ~OFMatch.OFPFW_NW_DST_MASK;
-                            }
+                            long srcDpid = srcDap.getSwitchDPID();
+                            long dstDpid = dstDap.getSwitchDPID();
+
+                            if (srcDpid == dstDpid) {
+                                srcSwOutport = pushRoute(route, pi, sw.getId(), wildcard_hints,
+                                                            cookie, cntx, requestFlowRemovedNotifn,
+                                                            false, OFFlowMod.OFPFC_ADD);
+                                if (srcSwOutport != null) 
+                                    pinSwitchFound = true;   
+                                continue;
+                            } 
+
+                            rwHeaders = new LinkedList<byte[]>();
+                            matchList = getMatchList(pi, dstDap.getSwitchDPID(), 
+                                                     srcDap.getSwitchDPID(), 
+                                                     rwHeaders);
+                            wildCards_List = new LinkedList<Integer>();
+
                             wildCards_List.addFirst(wildcard_hints);
                             // match only the pathID except at the source switch
                             wildcard_hints = new Integer(wildcard_hints);
@@ -506,9 +523,12 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                              | OFMatch.OFPFW_NW_SRC_MASK
                                              | OFMatch.OFPFW_NW_DST_MASK;
                             wildCards_List.addFirst(wildcard_hints);
-                            pushCircuit(route, matchList, wildCards_List, pi, sw.getId(), cookie, 
-                                      cntx, requestFlowRemovedNotifn, false,
-                                      OFFlowMod.OFPFC_ADD, rwHeaders);
+                            srcSwOutport = pushCircuit(route, matchList, wildCards_List, sw.getId(),
+                                                        pi, cookie, cntx, requestFlowRemovedNotifn,
+                                                        false, OFFlowMod.OFPFC_ADD, rwHeaders);
+                            if (srcSwOutport != null)
+                                pinSwitchRWHeaders = rwHeaders;
+                                pinSwitchFound = true;
                         }
                     }
                     iSrcDaps++;
@@ -518,6 +538,13 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                 } else {
                     iDstDaps++;
                 }
+            }
+            //TODO need to push the packet here
+            if (pinSwitchFound && (pinSwitchRWHeaders != null)) {
+                if (modifyDLHeaders(pi, pinSwitchRWHeaders))
+                    pushPacket(sw, pi, false, (short) srcSwOutport.intValue(), cntx);
+            } else if (pinSwitchFound){
+                pushPacket(sw, pi, false, (short) srcSwOutport.intValue(), cntx);
             }
         } else {
             // Flood since we don't know the dst device

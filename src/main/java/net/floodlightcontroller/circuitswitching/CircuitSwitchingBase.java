@@ -138,7 +138,6 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     public void addedSwitch (IOFSwitch sw)
     {
         long dpID = sw.getId();
-       
         CircuitIDGen obj = new CircuitIDGen(dpID); 
 
         if (obj == null) {
@@ -150,7 +149,6 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                          + "of memory. switch DPID {}", dpID); 
             return;
         } 
-   
         activeSwitches.put(dpID, obj); 
     }
 
@@ -160,7 +158,6 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     public void removedSwitch (IOFSwitch sw)
     {
         long dpID = sw.getId();
-
         if (activeSwitches.remove(dpID) == null) {
             if (logger.isDebugEnabled())
                 logger.debug("No circuitIDGen object found for "
@@ -178,14 +175,12 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     }
 
     // ICircuitSwitchingService
-
     public LinkedList<byte[]> getPathID (long srcID, long dstID, long cookie) 
     {
         boolean isSrcRooted = false;
         CircuitIDGen cidGen = null;
 
         isSrcRooted = (cookie & ISSRCROOTED_MSK) > 0;
-        
         if (isSrcRooted) {
             cidGen = activeSwitches.get(srcID); 
         } else {
@@ -199,12 +194,9 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             else
                 logger.info("No circuitIDGen object found for "
                          + "switch {} {}", srcID, dstID);
-
             return (null);
         }
-    
         long circuitID = cidGen.getCircuitID();
-       
         return (getBytes(dstID, srcID, circuitID, isSrcRooted));
     }
 
@@ -267,16 +259,16 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
      * @return srcSwitchIincluded True if the source switch is included in this route
      */
 
-    public boolean pushCircuit(Route route, LinkedList<OFMatch> matchList, 
-                             LinkedList<Integer> wHintsList,
-                             OFPacketIn pi,
-                             long pinSwitch,
-                             long cookie, 
-                             FloodlightContext cntx,
-                             boolean reqeustFlowRemovedNotifn,
-                             boolean doFlush,
-                             short flowModCommand,
-                             LinkedList<byte[]> rwHeaders)
+    public Integer pushCircuit(Route route, LinkedList<OFMatch> matchList, 
+                                LinkedList<Integer> wHintsList,
+                                long pinSwitch,
+                                OFPacketIn pi,
+                                long cookie, 
+                                FloodlightContext cntx,
+                                boolean reqeustFlowRemovedNotifn,
+                                boolean doFlush,
+                                short flowModCommand,
+                                LinkedList<byte[]> rwHeaders)
     {
         boolean srcSwitchIncluded = false;
         OFMatch match = null;
@@ -284,7 +276,8 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         int outputActionIndex = 0;
         Integer wildcard_hints = 0;
         OFFlowMod fm_backup = null;
-
+        Integer sourceSwOutport = null;
+    
         OFFlowMod fm =
                 (OFFlowMod) floodlightProvider.getOFMessageFactory()
                                               .getMessage(OFType.FLOW_MOD);
@@ -296,13 +289,18 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         if ((matchList != null) && (!matchList.isEmpty())) {
             match = matchList.get(index);
         } else {
-            return (srcSwitchIncluded);
+            if (logger.isDebugEnabled())
+                logger.debug("MatchList is empty");
+            //return (srcSwitchIncluded);
+            return (sourceSwOutport);
         }
 
         if ((wHintsList != null) && (!wHintsList.isEmpty())) {
             wildcard_hints = wHintsList.get(index);
         } else {
-            return (srcSwitchIncluded);
+            logger.debug("WildCard hints list is empty");
+            //return (srcSwitchIncluded);
+            return (sourceSwOutport);
         }
 
         fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
@@ -322,10 +320,11 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
             if (sw == null) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("Unable to push route, switch at DPID {} " +
+                    logger.warn("Unable to push circuit, switch at DPID {} " +
                             "not available", switchDPID);
                 }
-                return srcSwitchIncluded;
+                //return srcSwitchIncluded;
+                return (sourceSwOutport);
             }
             //need to reset it after each iteration
             outputActionIndex = 0;
@@ -385,28 +384,20 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             try {
                 counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
                 if (logger.isTraceEnabled()) {
-                    logger.trace("Pushing Route flowmod routeIndx={} " + 
+                    logger.trace("Pushing Circuit flowmod routeIndx={} " + 
                             "sw={} inPort={} outPort={}",
                             new Object[] {indx,
                                           sw,
                                           fm.getMatch().getInputPort(),
                                           outPort });
                 }
-                logger.info("pushing flow mod {}", fm);
                 messageDamper.write(sw, fm, cntx);
                 if (doFlush) {
                     sw.flush();
                     counterStore.updateFlush();
                 }
-
-                // Push the packet out the source switch
                 if (sw.getId() == pinSwitch) {
-                    // TODO: Instead of doing a packetOut here we could also 
-                    // send a flowMod with bufferId set.... 
-                    if (modifyDLHeaders(pi, rwHeaders)) {
-                        logger.info("pushing the PI out {}", pi);
-                        pushPacket(sw, pi, false, outPort, cntx);
-                    }
+                    sourceSwOutport = new Integer(outPort);
                     srcSwitchIncluded = true;
                 }
             } catch (IOException e) {
@@ -423,33 +414,128 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 }
             }
         }
-        return srcSwitchIncluded;
+        return (sourceSwOutport);
     }
 
-    private boolean modifyDLHeaders (OFPacketIn pi, LinkedList<byte[] > list)
+    public Integer pushRoute (Route route, OFPacketIn pi, 
+                                long pinSwitch, Integer wildcard_hints,
+                                long cookie,
+                                FloodlightContext cntx,
+                                boolean reqeustFlowRemovedNotifn,
+                                boolean doFlush,
+                                short flowModCommand)
+    {
+        OFMatch match = new OFMatch();
+        boolean srcSwitchIncluded = false;
+        Integer sourceSwOutport = null;
+        OFFlowMod fm = (OFFlowMod) floodlightProvider.getOFMessageFactory()
+                                                        .getMessage(OFType.FLOW_MOD);
+        OFActionOutput action = new OFActionOutput();
+        action.setMaxLength((short)0xffff);
+        List<OFAction> actions = new ArrayList<OFAction>();
+        actions.add(action);
+
+        match.loadFromPacket(pi.getPacketData(), pi.getInPort());
+        fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+            .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+            .setBufferId(OFPacketOut.BUFFER_ID_NONE)
+            .setCookie(cookie)
+            .setCommand(flowModCommand)
+            .setMatch(match)
+            .setActions(actions)
+            .setLengthU(OFFlowMod.MINIMUM_LENGTH+OFActionOutput.MINIMUM_LENGTH); 
+
+        List<NodePortTuple> switchPortList = route.getPath();
+        for (int indx = switchPortList.size()-1; indx > 0; indx -= 2) {
+            // indx and indx-1 will always have the same switch DPID.
+            long switchDPID = switchPortList.get(indx).getNodeId();
+            IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
+            if (sw == null) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Unable to push route, switch at DPID {} " +
+                            "not available", switchDPID);
+                }
+                return (sourceSwOutport);
+            }
+
+            // set the match.
+            fm.setMatch(wildcard(match, sw, wildcard_hints));
+
+            // set buffer id if it is the source switch
+            if (1 == indx) {
+                // Set the flag to request flow-mod removal notifications only for the
+                // source switch. The removal message is used to maintain the flow
+                // cache. Don't set the flag for ARP messages - TODO generalize check
+                if ((reqeustFlowRemovedNotifn)
+                        && (match.getDataLayerType() != Ethernet.TYPE_ARP)) {
+                    fm.setFlags(OFFlowMod.OFPFF_SEND_FLOW_REM);
+                    match.setWildcards(fm.getMatch().getWildcards());
+                }
+            }
+
+            short outPort = switchPortList.get(indx).getPortId();
+            short inPort = switchPortList.get(indx-1).getPortId();
+            // set input and output ports on the switch
+            fm.getMatch().setInputPort(inPort);
+            ((OFActionOutput)fm.getActions().get(0)).setPort(outPort);
+
+            try {
+                counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
+                if (logger.isTraceEnabled()) {
+                    logger.trace("Pushing Route flowmod routeIndx={} " + 
+                            "sw={} inPort={} outPort={}",
+                            new Object[] {indx,
+                                          sw,
+                                          fm.getMatch().getInputPort(),
+                                          outPort });
+                }
+                messageDamper.write(sw, fm, cntx);
+                if (doFlush) {
+                    sw.flush();
+                    counterStore.updateFlush();
+                }
+
+                // Push the packet out the source switch
+                if (sw.getId() == pinSwitch) {
+                    sourceSwOutport = new Integer(outPort);
+                    srcSwitchIncluded = true;
+                }
+            } catch (IOException e) {
+                logger.error("Failure writing flow mod", e);
+            }
+
+            try {
+                fm = fm.clone();
+            } catch (CloneNotSupportedException e) {
+                logger.error("Failure cloning flow mod", e);
+            }
+        }
+        return (sourceSwOutport);
+    }
+
+    protected boolean modifyDLHeaders (OFPacketIn pi, LinkedList<byte[] > list)
     {
         int macAddrLen = 6;
         byte[] packetData = pi.getPacketData();
         byte[] mac = list.get(list.size()-2);   
- 
+
         if (packetData == null)
             return (false);
-        
+
         for (int i = 0; i < 2*macAddrLen; i++)
         {
             if (i == macAddrLen)
                 mac = list.getLast();
-
             packetData[i] = mac[i%6]; 
         }
 
         pi.setPacketData(packetData);
-        logger.info("rewritter packet {}", pi.toString());
+        logger.trace("modified the packet {}", pi.toString());
         return (true);
     }
 
     protected OFMatch wildcard(OFMatch match, IOFSwitch sw,
-                               Integer wildcard_hints)
+            Integer wildcard_hints)
     {
         if (wildcard_hints != null) {
             return match.clone().setWildcards(wildcard_hints.intValue());
@@ -471,57 +557,52 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
      * @param cntx      context of the packet
      */
     protected void pushPacket(IOFSwitch sw, OFPacketIn pi, 
-                           boolean useBufferId, 
-                           short outport, FloodlightContext cntx) {
-
+            boolean useBufferId, 
+            short outport, FloodlightContext cntx)
+    {
         if (pi == null) {
             return;
         }
-
         // The assumption here is (sw) is the switch that generated the 
         // packet-in. If the input port is the same as output port, then
         // the packet-out should be ignored.
         //$$ disabling the check for now. \\
-        /*if (pi.getInPort() == outport) {
+        if (pi.getInPort() == outport) {
             if (logger.isDebugEnabled()) {
                 logger.debug("Attempting to do packet-out to the same " + 
-                          "interface as packet-in. Dropping packet. " + 
-                          " SrcSwitch={}, pi={}", 
-                          new Object[]{sw, pi});
+                        "interface as packet-in. Dropping packet. " + 
+                        " SrcSwitch={}, pi={}", 
+                        new Object[]{sw, pi});
                 return;
             }
-        }*/
-
+        }
         if (logger.isTraceEnabled()) {
             logger.trace("PacketOut srcSwitch={} pi={}", 
-                      new Object[] {sw, pi});
+                    new Object[] {sw, pi});
         }
-
         OFPacketOut po =
-                (OFPacketOut) floodlightProvider.getOFMessageFactory()
-                                                .getMessage(OFType.PACKET_OUT);
-
+            (OFPacketOut) floodlightProvider.getOFMessageFactory()
+            .getMessage(OFType.PACKET_OUT);
         // set actions
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(new OFActionOutput(outport, (short) 0xffff));
 
         po.setActions(actions)
-          .setActionsLength((short) OFActionOutput.MINIMUM_LENGTH);
+            .setActionsLength((short) OFActionOutput.MINIMUM_LENGTH);
         short poLength =
-                (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
+            (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
 
         if (useBufferId) {
             po.setBufferId(pi.getBufferId());
         } else {
             po.setBufferId(OFPacketOut.BUFFER_ID_NONE);
         }
-        
+
         if (po.getBufferId() == OFPacketOut.BUFFER_ID_NONE) {
             byte[] packetData = pi.getPacketData();
             poLength += packetData.length;
             po.setPacketData(packetData);
         }
-
         po.setInPort(pi.getInPort());
         po.setLength(poLength);
 
@@ -543,10 +624,10 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
      * @param cntx
      */
     public void packetOutMultiPort(byte[] packetData,
-                                   IOFSwitch sw,
-                                   short inPort,
-                                   Set<Integer> outPorts,
-                                   FloodlightContext cntx) {
+            IOFSwitch sw,
+            short inPort,
+            Set<Integer> outPorts,
+            FloodlightContext cntx) {
         //setting actions
         List<OFAction> actions = new ArrayList<OFAction>();
 
@@ -555,15 +636,15 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         while (j.hasNext())
         {
             actions.add(new OFActionOutput(j.next().shortValue(), 
-                                           (short) 0));
+                        (short) 0));
         }
 
         OFPacketOut po = 
-                (OFPacketOut) floodlightProvider.getOFMessageFactory().
-                getMessage(OFType.PACKET_OUT);
+            (OFPacketOut) floodlightProvider.getOFMessageFactory().
+            getMessage(OFType.PACKET_OUT);
         po.setActions(actions);
         po.setActionsLength((short) (OFActionOutput.MINIMUM_LENGTH * 
-                outPorts.size()));
+                    outPorts.size()));
 
         // set buffer-id to BUFFER_ID_NONE, and set in-port to OFPP_NONE
         po.setBufferId(OFPacketOut.BUFFER_ID_NONE);
@@ -596,10 +677,10 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
      * and switch can be different than the packet in switch/port
      */ 
     public void packetOutMultiPort(OFPacketIn pi,
-                                   IOFSwitch sw,
-                                   short inPort,
-                                   Set<Integer> outPorts,
-                                   FloodlightContext cntx) {
+            IOFSwitch sw,
+            short inPort,
+            Set<Integer> outPorts,
+            FloodlightContext cntx) {
         packetOutMultiPort(pi.getPacketData(), sw, inPort, outPorts, cntx);
     }
 
@@ -609,29 +690,29 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
      * and switch can be different than the packet in switch/port
      */
     public void packetOutMultiPort(IPacket packet,
-                                   IOFSwitch sw,
-                                   short inPort,
-                                   Set<Integer> outPorts,
-                                   FloodlightContext cntx) {
+            IOFSwitch sw,
+            short inPort,
+            Set<Integer> outPorts,
+            FloodlightContext cntx) {
         packetOutMultiPort(packet.serialize(), sw, inPort, outPorts, cntx);
     }
 
     protected boolean isInBroadcastCache(IOFSwitch sw, OFPacketIn pi,
-                        FloodlightContext cntx) {
+            FloodlightContext cntx) {
         // Get the cluster id of the switch.
         // Get the hash of the Ethernet packet.
         if (sw == null) return true;  
-        
+
         // If the feature is disabled, always return false;
         if (!broadcastCacheFeature) return false;
 
         Ethernet eth = 
             IFloodlightProviderService.bcStore.get(cntx,
-                IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        
+                    IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+
         Long broadcastHash;
         broadcastHash = topology.getL2DomainId(sw.getId()) * prime1 +
-                        pi.getInPort() * prime2 + eth.hashCode();
+            pi.getInPort() * prime2 + eth.hashCode();
         if (broadcastCache.update(broadcastHash)) {
             sw.updateBroadcastCache(broadcastHash, pi.getInPort());
             return true;
@@ -642,13 +723,13 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
 
     protected boolean isInSwitchBroadcastCache(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) {
         if (sw == null) return true;
-        
+
         // If the feature is disabled, always return false;
         if (!broadcastCacheFeature) return false;
 
         // Get the hash of the Ethernet packet.
         Ethernet eth =
-                IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+            IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
         long hash =  pi.getInPort() * prime2 + eth.hashCode();
 
@@ -657,67 +738,67 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     }
 
     public static boolean
-            blockHost(IFloodlightProviderService floodlightProvider,
-                      SwitchPort sw_tup, long host_mac,
-                      short hardTimeout, long cookie) {
+        blockHost(IFloodlightProviderService floodlightProvider,
+                SwitchPort sw_tup, long host_mac,
+                short hardTimeout, long cookie) {
 
-        if (sw_tup == null) {
-            return false;
-        }
+            if (sw_tup == null) {
+                return false;
+            }
 
-        IOFSwitch sw = 
+            IOFSwitch sw = 
                 floodlightProvider.getSwitches().get(sw_tup.getSwitchDPID());
-        if (sw == null) return false;
-        int inputPort = sw_tup.getPort();
-        logger.debug("blockHost sw={} port={} mac={}",
-                  new Object[] { sw, sw_tup.getPort(), new Long(host_mac) });
+            if (sw == null) return false;
+            int inputPort = sw_tup.getPort();
+            logger.debug("blockHost sw={} port={} mac={}",
+                    new Object[] { sw, sw_tup.getPort(), new Long(host_mac) });
 
-        // Create flow-mod based on packet-in and src-switch
-        OFFlowMod fm =
+            // Create flow-mod based on packet-in and src-switch
+            OFFlowMod fm =
                 (OFFlowMod) floodlightProvider.getOFMessageFactory()
-                                              .getMessage(OFType.FLOW_MOD);
-        OFMatch match = new OFMatch();
-        List<OFAction> actions = new ArrayList<OFAction>(); // Set no action to
-                                                            // drop
-        match.setDataLayerSource(Ethernet.toByteArray(host_mac))
-             .setInputPort((short)inputPort)
-             .setWildcards(OFMatch.OFPFW_ALL & ~OFMatch.OFPFW_DL_SRC
-                     & ~OFMatch.OFPFW_IN_PORT);
-        fm.setCookie(cookie)
-          .setHardTimeout(hardTimeout)
-          .setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
-          .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
-          .setBufferId(OFPacketOut.BUFFER_ID_NONE)
-          .setMatch(match)
-          .setActions(actions)
-          .setLengthU(OFFlowMod.MINIMUM_LENGTH); // +OFActionOutput.MINIMUM_LENGTH);
+                .getMessage(OFType.FLOW_MOD);
+            OFMatch match = new OFMatch();
+            List<OFAction> actions = new ArrayList<OFAction>(); // Set no action to
+            // drop
+            match.setDataLayerSource(Ethernet.toByteArray(host_mac))
+                .setInputPort((short)inputPort)
+                .setWildcards(OFMatch.OFPFW_ALL & ~OFMatch.OFPFW_DL_SRC
+                        & ~OFMatch.OFPFW_IN_PORT);
+            fm.setCookie(cookie)
+                .setHardTimeout(hardTimeout)
+                .setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+                .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+                .setBufferId(OFPacketOut.BUFFER_ID_NONE)
+                .setMatch(match)
+                .setActions(actions)
+                .setLengthU(OFFlowMod.MINIMUM_LENGTH); // +OFActionOutput.MINIMUM_LENGTH);
 
-        try {
-            logger.debug("write drop flow-mod sw={} match={} flow-mod={}",
-                      new Object[] { sw, match, fm });
-            // TODO: can't use the message damper sine this method is static
-            sw.write(fm, null);
-        } catch (IOException e) {
-            logger.error("Failure writing deny flow mod", e);
-            return false;
+            try {
+                logger.debug("write drop flow-mod sw={} match={} flow-mod={}",
+                        new Object[] { sw, match, fm });
+                // TODO: can't use the message damper sine this method is static
+                sw.write(fm, null);
+            } catch (IOException e) {
+                logger.error("Failure writing deny flow mod", e);
+                return false;
+            }
+            return true;
+
         }
-        return true;
 
-    }
-
-    LinkedList<byte[]> getBytes (long dstID, long srcID, long circuitID, boolean isSrcRooted)
+    LinkedList<byte[]> getBytes (long dstID, long srcID,
+            long circuitID, boolean isSrcRooted)
     {
-	ByteBuffer buffer = ByteBuffer.allocate(16);
-        long switchMAC;
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        long switchMAC = -1;
         byte array[] = null;
         int index = 0;
-	LinkedList<byte[]> rv = new LinkedList<byte[]>();
-    	byte[] result = new byte[6];
-    	        
-        buffer.clear(); 
+        LinkedList<byte[]> rv = new LinkedList<byte[]>();
+        byte[] result = new byte[6];
+
         // Need to set the locally admin bit and the unicast bit 
         circuitID = (circuitID | LAdminMAC_MSK) & UCAST_MSK;
-	
+
         if (isSrcRooted) {
             switchMAC = srcID & DPID_MSK;
             //first destination then source MAC
@@ -732,7 +813,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         for (int i = 2; i < 8; i++)
             result[index++] = array[i];
         rv.add(result);
-	result = new byte[6];
+        result = new byte[6];
         index = 0; 
         for (int i = 10; i < 16; i++)
             result[index++] = array[i];
@@ -744,17 +825,16 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     protected void init()
     {
         messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
-                                            EnumSet.of(OFType.FLOW_MOD),
-                                            OFMESSAGE_DAMPER_TIMEOUT);
+                EnumSet.of(OFType.FLOW_MOD),
+                OFMESSAGE_DAMPER_TIMEOUT);
         activeSwitches = new ConcurrentHashMap<Long, CircuitIDGen>();
     } 
-  
+
     public void startUp()
     {
         //register for switch updates
         floodlightProvider.addOFSwitchListener(this);
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
-        logger.info("\n **** Initialized Circuit Switching ***\n");
     }
 
     private final long ISSRCROOTED_MSK = 0x1L;
@@ -763,4 +843,3 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     private final long UCAST_MSK = 0xFFFFFEFFFFFFFFFFL;
     protected ConcurrentHashMap<Long, CircuitIDGen> activeSwitches;
 }
-
