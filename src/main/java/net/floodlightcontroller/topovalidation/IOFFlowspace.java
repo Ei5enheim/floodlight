@@ -5,6 +5,12 @@
 
 package net.floodlightcontroller.topovalidation;
 
+import java.util.Map;
+import java.util.SortedMap;
+
+import net.floodlightcontroller.util.Vlan;
+import net.floodlightcontroller.util.IPv4Address;
+
 public interface IOFFlowspace
 {
     final public static int VlanPCP_LEN = 8;
@@ -63,5 +69,112 @@ public interface IOFFlowspace
     final public static String STR_NW_TOS = "nw_tos";
     final public static String STR_TP_DST = "tp_dst";
     final public static String STR_TP_SRC = "tp_src";
-    // left empty for now
+
+    public void setFlowSpaceType (boolean isSparse);
+    public Long getRandomDataLayerDst ();
+    public boolean getDataLayerDst (long mac);
+    public OFFlowspace setDataLayerDst (Map<Long, Boolean> dataLayerDst);
+    public OFFlowspace addDataLayerDst (long macAddress);
+    public OFFlowspace addDataLayerDst (byte[] macAddress);
+    public OFFlowspace blockDataLayerDst (long macAddress);
+    public OFFlowspace blockDataLayerDst(byte[] macAddress);
+    public OFFlowspace removeDataLayerDst (long macAddress);
+    public OFFlowspace removeDataLayerDst (byte[] macAddress);
+    public OFFlowspace addDataLayerDst(String mac);
+    
+    public Long getRandomDataLayerSrc();
+    public boolean getDataLayerSrc (long mac);
+    public OFFlowspace setDataLayerSrc (Map<Long, Boolean> dataLayerSource);
+    public OFFlowspace addDataLayerSrc (long macAddress);
+    public OFFlowspace addDataLayerSrc (byte[] macAddress);
+    public OFFlowspace blockDataLayerSrc (long macAddress);
+    public OFFlowspace blockDataLayerSrc (byte[] macAddress);
+    public OFFlowspace removeDataLayerSrc (long macAddress);
+    public OFFlowspace removeDataLayerSrc (byte[] macAddress);
+    public OFFlowspace addDataLayerSrc (String mac);
+
+    public boolean getDataLayerType (short etherType);
+    public Short getRandomDataLayerType ();
+    public OFFlowspace setDataLayerType (Map<Short, Boolean> dataLayerType);
+    public OFFlowspace addDataLayerType (short dataLayerType);
+    public OFFlowspace blockDataLayerType (short dataLayerType);
+    public OFFlowspace removeDataLayerType (short dataLayerType);
+
+    public Short getRandomDataLayerVlan ();
+    public boolean getDataLayerVlan (short vlan);
+    public OFFlowspace setDataLayerVlan (SortedMap <Vlan,
+                                    Boolean> dataLayerVlan);
+    public OFFlowspace addDataLayerVlan (short dataLayerVlan);
+    public OFFlowspace addDataLayerVlan (short dataLayerVlan,
+                                            short range);
+    public OFFlowspace blockDataLayerVlan (short dataLayerVlan,
+                                            short range);
+    public OFFlowspace blockDataLayerVlan (short dataLayerVlan);
+    public OFFlowspace removeDataLayerVlan (short dataLayerVlan,
+                                            short range);
+
+    public byte getRandomVlanPCP();
+    public boolean getVlanPCP (byte pcp);
+    public OFFlowspace setVlanPCP(byte pcp);
+    public OFFlowspace addVlanPCP(byte pcp);
+    public OFFlowspace removeVlanPCP(byte pcp);
+
+    public IPv4Address getRandomNetworkDestination();
+    public boolean getNetworkDestination (IPv4Address ip);
+    public boolean getNetworkDestination (int ip);
+    public OFFlowspace setNetworkDestination (Map<IPv4Address,
+                                    Boolean> networkDestination);
+    public OFFlowspace addNetworkDestination (IPv4Address ip,
+                                              boolean bool);
+    public OFFlowspace addNetworkDestination (int networkAddress,
+                                                byte mask);
+    public OFFlowspace addNetworkDestination (IPv4Address ip);
+    public OFFlowspace blockNetworkDestination (int networkAddress,
+                                                byte mask);
+    public OFFlowspace blockNetworkDestination (IPv4Address ip);
+    public OFFlowspace removeNetworkDestination (IPv4Address ip);
+    public OFFlowspace removeNetworkDestination (int ip, byte mask);
+
+    public short getRandomNetworkProtocol();
+    public boolean getNetworkProtocol (short protocol);
+    public OFFlowspace setNetworkProtocol (Map <Short, Boolean> networkProtocol);
+    public OFFlowspace addNetworkProtocol (short prtcl);
+    public OFFlowspace blockNetworkProtocol (short prtcl);
+    public OFFlowspace removeNetworkProtocol (short prtcl);
+
+    public IPv4Address getRandomNetworkSource();
+    public boolean getNetworkSource (IPv4Address ip);
+    public boolean getNetworkSource (int ip);
+    public OFFlowspace setNetworkSource (Map<IPv4Address,
+                                    Boolean> networkSource);
+    public OFFlowspace addNetworkSource (IPv4Address ip,
+                                            boolean bool);
+    public OFFlowspace addNetworkSource (int networkAddress,
+                                            byte mask);
+    public OFFlowspace addNetworkSource (IPv4Address ip);
+    public OFFlowspace blockNetworkSource (int networkAddress,
+                                            byte mask);
+    public OFFlowspace blockNetworkSource (IPv4Address ip);
+    public OFFlowspace removeNetworkSource (IPv4Address ip);
+    public OFFlowspace removeNetworkSource (int ip, byte range);
+
+    public byte getRandomNetworkTOS ();
+    public boolean getNetworkTOS (byte tos);
+    public OFFlowspace setNetworkTypeOfService(long networkTOS);
+    public OFFlowspace addNetworkTOS (byte tos);
+    public OFFlowspace removeNetworkTOS (byte tos);
+
+    public boolean getTPDst (short dst);
+    public Short getRandomTPDst ();
+    public OFFlowspace setTPDst (Map<Short, Boolean> transportDestination);
+    public OFFlowspace addTPDst (short dst);
+    public OFFlowspace blockTPDst (short dst);
+    public OFFlowspace removeTPDst (short dst);
+
+    public boolean getTPSrc (short src);
+    public Short getRandomTPSrc ();
+    public OFFlowspace setTPSrc (Map<Short, Boolean> transportSource);
+    public OFFlowspace addTPSrc (short src);
+    public OFFlowspace blockTPSrc (short src);
+    public OFFlowspace removeTPSrc (short src);
 }
