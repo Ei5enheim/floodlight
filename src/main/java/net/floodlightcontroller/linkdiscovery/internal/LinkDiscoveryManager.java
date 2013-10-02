@@ -232,7 +232,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     protected BlockingQueue<LDUpdate> updates;
     protected Thread updatesThread;
 
-    protected boolean topoVerified = false;
+    protected boolean topoVerified = true;
 
     /**
      * List of ports through which LLDP/BDDPs are not sent.
@@ -330,8 +330,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                    explanation = "An unknown error occured while dispatching "
                                  + "link update notifications",
                    recommendation = LogMessageDoc.GENERIC_ACTION)
-    private
-            void doUpdatesThread() throws InterruptedException {
+    private void doUpdatesThread() throws InterruptedException
+    {
         do {
             LDUpdate update = updates.take();
             List<LDUpdate> updateList = new ArrayList<LDUpdate>();
@@ -370,8 +370,10 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                                                      portNumber));
     }
 
-    protected void discoverLinks() {
+    protected void discoverLinks()
+    {
 
+        // Ignore for now
         /*
         // timeout known links.
         timeoutLinks();
@@ -392,7 +394,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         @Override
         public void run() {
             try {
-                processBDDPLists();
+                //processBDDPLists();
             } catch (Exception e) {
                 log.error("Error in quarantine worker thread", e);
             } finally {
@@ -429,7 +431,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
      */
     protected void addToMaintenanceQueue(NodePortTuple npt) {
         if (maintenanceQueue.contains(npt) == false)
-                                                    maintenanceQueue.add(npt);
+            maintenanceQueue.add(npt);
     }
 
     /**
@@ -1116,30 +1118,30 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         srcNpt = new NodePortTuple(lt.getSrc(), lt.getSrcPort());
         dstNpt = new NodePortTuple(lt.getDst(), lt.getDstPort());
-		lock.writeLock().lock();
-		try {
-        	// index it by switch source
-        	if (!switchLinks.containsKey(lt.getSrc()))
-            	switchLinks.put(lt.getSrc(), new HashSet<Link>());
-        
-        	switchLinks.get(lt.getSrc()).add(lt);
+	try {
+            lock.writeLock().lock();
+            // index it by switch source
+            if (!switchLinks.containsKey(lt.getSrc()))
+                switchLinks.put(lt.getSrc(), new HashSet<Link>());
 
-   	     // index it by switch dest
-    	    if (!switchLinks.containsKey(lt.getDst()))
-    	        switchLinks.put(lt.getDst(), new HashSet<Link>());
-    	    
-    	    switchLinks.get(lt.getDst()).add(lt);
+            switchLinks.get(lt.getSrc()).add(lt);
 
-    	    // index both ends by switch:port
-    	    if (!portLinks.containsKey(srcNpt))
-    	        portLinks.put(srcNpt, new HashSet<Link>());
+            // index it by switch dest
+            if (!switchLinks.containsKey(lt.getDst()))
+                switchLinks.put(lt.getDst(), new HashSet<Link>());
+
+            switchLinks.get(lt.getDst()).add(lt);
+
+            // index both ends by switch:port
+            if (!portLinks.containsKey(srcNpt))
+                portLinks.put(srcNpt, new HashSet<Link>());
+
+            portLinks.get(srcNpt).add(lt);
 	
-    	    portLinks.get(srcNpt).add(lt);
-	
-    	    if (!portLinks.containsKey(dstNpt))
-    	        portLinks.put(dstNpt, new HashSet<Link>());
-	
-    	    portLinks.get(dstNpt).add(lt);
+            if (!portLinks.containsKey(dstNpt))
+                portLinks.put(dstNpt, new HashSet<Link>());
+
+            portLinks.get(dstNpt).add(lt);
 	
     	    // Write changes to storage. This will always write the updated
     	    // valid time, plus the port states if they've changed (i.e. if
@@ -1159,13 +1161,13 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     	                   getLinkType(lt, info),
     	                   EvAction.LINK_ADDED,
     	                   "LLDP Recvd");
-	        updates.add(new LDUpdate(lt.getSrc(), lt.getSrcPort(),
-                                 lt.getDst(), lt.getDstPort(),
-                                 getLinkType(lt, info),
-                                 updateOperation));
-		} finally {
-		    lock.writeLock().unlock();
-		}
+            updates.add(new LDUpdate(lt.getSrc(), lt.getSrcPort(),
+                        lt.getDst(), lt.getDstPort(),
+                        getLinkType(lt, info),
+                        updateOperation));
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
 
@@ -1179,6 +1181,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                     OFPhysicalPort.OFPortState.OFPPS_STP_FORWARD.getValue(),
                                     OFPhysicalPort.OFPortState.OFPPS_STP_FORWARD.getValue());
 	try {
+            lock.writeLock().lock();
             for (link lt: links) {
                 srcNpt = new NodePortTuple(lt.getSrc(), lt.getSrcPort());
                 dstNpt = new NodePortTuple(lt.getDst(), lt.getDstPort());
@@ -1229,7 +1232,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                             lt.getDst(), lt.getDstPort(),
                             getLinkType(lt, info),
                             updateOperation));
-                info = info.clone();
+                // uncomment the below line when LLDPs are used
+                //info = info.clone();
             }
         } finally {
             lock.writeLock().unlock();
@@ -1264,14 +1268,14 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             if (oldInfo == null) {
                 // index it by switch source
                 if (!switchLinks.containsKey(lt.getSrc()))
-                                                          switchLinks.put(lt.getSrc(),
-                                                                          new HashSet<Link>());
+                    switchLinks.put(lt.getSrc(),
+                                    new HashSet<Link>());
                 switchLinks.get(lt.getSrc()).add(lt);
 
                 // index it by switch dest
                 if (!switchLinks.containsKey(lt.getDst()))
-                                                          switchLinks.put(lt.getDst(),
-                                                                          new HashSet<Link>());
+                    switchLinks.put(lt.getDst(),
+                                    new HashSet<Link>());
                 switchLinks.get(lt.getDst()).add(lt);
 
                 // index both ends by switch:port
@@ -1624,7 +1628,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         if (sw.getEnabledPortNumbers() != null) {
             for (Short p : sw.getEnabledPortNumbers()) {
-                processNewPort(sw.getId(), p);
+                //processNewPort(sw.getId(), p);
             }
         }
         // Update event history
@@ -2132,9 +2136,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     }
 
     @Override
-    public
-            void
-            init(FloodlightModuleContext context)
+    public void init(FloodlightModuleContext context)
                                                  throws FloodlightModuleException {
         floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
         storageSource = context.getServiceImpl(IStorageSourceService.class);
@@ -2223,6 +2225,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
 
+        // Need to uncomment this part when LLDP is needed.
+        /*
         // To be started by the first switch connection
         discoveryTask = new SingletonTask(ses, new Runnable() {
             @Override
@@ -2252,6 +2256,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                 }
             }
         });
+        */
 
         // null role implies HA mode is not enabled.
         Role role = floodlightProvider.getRole();
@@ -2263,11 +2268,12 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             log.trace("Setup: Not scheduling LLDP as role = {}.", role);
         }
 
+        /*
         // Setup the BDDP task. It is invoked whenever switch port tuples
         // are added to the quarantine list.
         bddpTask = new SingletonTask(ses, new QuarantineWorker());
         bddpTask.reschedule(BDDP_TASK_INTERVAL, TimeUnit.MILLISECONDS);
-
+        */
         updatesThread = new Thread(new Runnable() {
             @Override
             public void run() {
