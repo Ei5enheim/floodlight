@@ -25,10 +25,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.ConcurrentMap;
 
 import net.floodlightcontroller.core.IFloodlightProviderService.Role;
 import net.floodlightcontroller.core.internal.Controller;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
+import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.topology.IOFFlowspace;
+
 
 import org.jboss.netty.channel.Channel;
 import org.openflow.protocol.OFFeaturesReply;
@@ -44,6 +48,8 @@ import org.openflow.protocol.statistics.OFStatistics;
  * @author David Erickson (daviderickson@cs.stanford.edu)
  */
 public interface IOFSwitch {
+
+
     // Attribute keys
     public static final String SWITCH_DESCRIPTION_FUTURE = "DescriptionFuture";
     public static final String SWITCH_DESCRIPTION_DATA = "DescriptionData";
@@ -124,7 +130,6 @@ public interface IOFSwitch {
      * @param bc
      * @throws IOException
      */
-    public void write(List<OFMessage> msglist, FloodlightContext bc) throws IOException;
     
     /**
      * 
@@ -150,6 +155,9 @@ public interface IOFSwitch {
      * @param featuresReply
      */
     public void setFeaturesReply(OFFeaturesReply featuresReply);
+
+    public void setFeaturesReply(OFFeaturesReply featuresReply,
+				 ConcurrentMap <NodePortTuple, IOFFlowspace[]> flowspace);
     
     /**
      * Get list of all enabled ports. This will typically be different from
@@ -488,5 +496,16 @@ public interface IOFSwitch {
      * @return
      */
     public List<Short> getUplinkPorts();
+
+    public void setDomainId (Object id);
+
+    public void getDomainId (Object id);
+
+    public boolean getStatus ();
     
+    public void setStatus (boolean status);
+
+    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, 
+				 	ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace);
+
 }

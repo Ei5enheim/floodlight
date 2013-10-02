@@ -51,11 +51,15 @@ import org.openflow.protocol.action.OFActionOutput;
 import org.openflow.protocol.action.OFActionDataLayerDestination;
 import org.openflow.protocol.action.OFActionDataLayerSource;
 
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
+
 import java.util.Comparator;
 import java.util.Collection;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -417,7 +421,12 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         return (sourceSwOutport);
     }
 
-    public Integer pushRoute (Route route, OFPacketIn pi, 
+    private OFPacketIn translatePktHeader (OFPacketIn pi)
+    {
+        return (pi);
+    }
+
+    /*public Integer pushRoute (Route route, OFPacketIn pi, 
                                 long pinSwitch, Integer wildcard_hints,
                                 long cookie,
                                 FloodlightContext cntx,
@@ -431,6 +440,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         OFFlowMod fm = (OFFlowMod) floodlightProvider.getOFMessageFactory()
                                                         .getMessage(OFType.FLOW_MOD);
         OFActionOutput action = new OFActionOutput();
+        ArrayList<OFFlowMod> fmList = new ArrayList<OFFlowMod>();
         action.setMaxLength((short)0xffff);
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(action);
@@ -495,7 +505,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                     counterStore.updateFlush();
                 }
 
-                // Push the packet out the source switch
+                // Push the packet out of the source switch
                 if (sw.getId() == pinSwitch) {
                     sourceSwOutport = new Integer(outPort);
                     srcSwitchIncluded = true;
@@ -511,6 +521,158 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             }
         }
         return (sourceSwOutport);
+    }*/
+
+    private boolean setActionOutputFlowMod (OFFlowMod fm,
+                                            List<NodePortTuple> switchPortList,
+                                            int wildcard_hints,
+                                            long pinSwitch,
+                                            Integer sourceSwOutport,
+                                            int indx)
+    {
+        // indx and indx-1 will always have the same switch DPID.
+        long switchDPID = switchPortList.get(indx).getNodeId();
+        IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
+        if (sw == null) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Unable to push route, switch at DPID {} " +
+                        "not available", switchDPID);
+            }
+            return (false);
+        }
+
+        short outPort = switchPortList.get(indx).getPortId();
+        short inPort = switchPortList.get(indx-1).getPortId();
+        // set input and output ports on the switch
+        fm.getMatch().setInputPort(inPort);
+        ((OFActionOutput)fm.getActions().get(0)).setPort(outPort);
+        fm.setMatch(wildcard(match, sw, wildcard_hints));
+
+        if (sw.getId() == pinSwitch) {
+            sourceSwOutport = new Integer(outPort);
+        }   
+        return (true);
+    }
+
+    public Integer pushRoute (Route route, OFPacketIn pi, 
+                                long pinSwitch, Integer wildcard_hints,
+                                long cookie,
+                                FloodlightContext cntx,
+                                boolean reqeustFlowRemovedNotifn,
+                                boolean doFlush,
+                                short flowModCommand)
+    {
+        byte[] packetData = Arrays.copyOf(pi.getPacketData(), 
+                                            pi.getPacketData().length);
+        OFMatch match = new OFMatch();
+        Integer sourceSwOutport = null;
+        Rules table = null;
+        Link link = null;
+        OFFlowMod fm = (OFFlowMod) floodlightProvider.getOFMessageFactory()
+                                                     .getMessage(OFType.FLOW_MOD);
+        OFFlowMod srcSwFm = null;
+        OFActionOutput action = new OFActionOutput();
+        ArrayList<OFFlowMod> fmList = new ArrayList<OFFlowMod>();
+        action.setMaxLength((short)0xffff);
+        List<OFAction> actions = new ArrayList<OFAction>();
+        actions.add(action);
+
+        match.loadFromPacket(packetData, pi.getInPort());
+        fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+            .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+            .setBufferId(OFPacketOut.BUFFER_ID_NONE)
+            .setCookie(cookie)
+            .setCommand(flowModCommand)
+            .setMatch(match)
+            .setActions(actions)
+            .setLengthU(OFFlowMod.MINIMUM_LENGTH+OFActionOutput.MINIMUM_LENGTH); 
+        
+        srcSwFm = fm;
+        if ((reqeustFlowRemovedNotifn)
+                && (match.getDataLayerType() != Ethernet.TYPE_ARP)) {
+            try {
+                srcSwFm = fm.clone();
+            } catch (CloneNotSupportedException e) {
+                logger.error("Failure cloning flow mod", e);
+            }
+            srcSwFm.setFlags(OFFlowMod.OFPFF_SEND_FLOW_REM);
+            //match.setWildcards(srcSwFm.getMatch().getWildcards());
+        }
+
+        List<NodePortTuple> switchPortList = route.getPath();
+        setActionOutputFlowMod (srcSwFm, switchPortList,
+                                    wildcard_hints, pinSwitch,
+                                    sourceSwOutport, 1); 
+        fmList.addFirst(srcSwFm);
+
+        for (int indx = 2; i < switchPortList.size()-1; indx += 2) {
+            // indx and indx+1 will always have the same switch DPID.
+
+            link = new Link(switchPortList.get(indx-1).getNodeId(),
+                            switchPortList.get(indx-1).getPortId(),
+                            switchPortList.get(indx).getNodeId(),
+                            switchPortList.get(indx).getPortId());
+            table = floodlightProvider.getLinkRuleTransTable(link);
+
+            if (table == null) {
+                log.trace("Non-Virtual Link {}", link);
+            } else {
+                packetData = table.translate(packetData);
+            }
+
+            fm.getMatch().loadFromPacket(packetData);
+            setActionOutputFlowMod (srcSwFm, switchPortList,
+                                        wildcard_hints, pinSwitch,
+                                        sourceSwOutport, 1);
+            fmList.addFirst(fm);
+            
+            try {
+                fm = fm.clone();
+            } catch (CloneNotSupportedException e) {
+                logger.error("Failure cloning flow mod", e);
+            }
+        }
+
+        pushFlowMods(switchPortList, cntx, fmList, doFlush);
+        return (sourceSwOutport);
+    }
+
+    private void pushFlowMods (List<NodePortTuple> switchPortList,
+                                FloodlightContext cntx,                            
+                                List<OFFlowMod> fmList,
+                                boolean doFlush)
+    {
+        OFFlowMod fm = null;
+        int i = 0;
+        for (int ind = switchPortList.size -1; indx > 0; indx -=2) {
+            long switchDPID = switchPortList.get(indx).getNodeId();
+            IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
+            if (sw == null) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Unable to push route, switch at DPID {} " +
+                            "not available", switchDPID);
+                }
+                return;
+            }
+            fm = fmList.get(i++); 
+            try {
+                counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
+                if (logger.isTraceEnabled()) {
+                    logger.trace("Pushing Route flowmod routeIndx={} " + 
+                            "sw={} inPort={}",
+                            new Object[] {indx,
+                            sw,
+                            fm.getMatch().getInputPort()});
+                }
+                messageDamper.write(sw, fm, cntx);
+                if (doFlush) {
+                    sw.flush();
+                    counterStore.updateFlush();
+                }
+            } catch (IOException e) {
+                logger.error("Failure writing flow mod", e);
+            }
+        }
     }
 
     protected boolean modifyDLHeaders (OFPacketIn pi, LinkedList<byte[] > list)
@@ -535,7 +697,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     }
 
     protected OFMatch wildcard(OFMatch match, IOFSwitch sw,
-            Integer wildcard_hints)
+                                Integer wildcard_hints)
     {
         if (wildcard_hints != null) {
             return match.clone().setWildcards(wildcard_hints.intValue());

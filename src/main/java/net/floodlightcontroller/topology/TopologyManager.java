@@ -93,17 +93,18 @@ public class TopologyManager implements
     protected Map<NodePortTuple, Set<Link>> switchPortLinks;
 
     /**
-     * Set of direct links
+     * Set of direct links, these are physical single hop links between openflow switches
      */
     protected Map<NodePortTuple, Set<Link>> directLinks;
 
     /**
-     * set of links that are broadcast domain links.
+     * set of links that are broadcast domain links. These are basically links on which BDDP packets are 
+     * received and no LLDP packets.
      */
     protected Map<NodePortTuple, Set<Link>> portBroadcastDomainLinks;
 
     /**
-     * set of tunnel links
+     * set of tunnel links 
      */
     protected Set<NodePortTuple> tunnelPorts;
 
@@ -239,7 +240,9 @@ public class TopologyManager implements
                 return false;
 
         // Check whether the port is a physical port. We should not learn
-        // attachment points on "special" ports.
+        // attachment points on "special" ports. ports > 0xff00 have a special meaning.
+        // OFPP_LOCAL is the virtual port to recv packets from the controller.
+        // OFPP_CONTROLLER is the virtual port to send packets to the controller
         if ((port & 0xff00) == 0xff00 && port != (short)0xfffe) return false;
 
         // Make sure that the port is enabled.
@@ -843,7 +846,7 @@ public class TopologyManager implements
     }
 
     /**
-     * The BDDP packets are forwarded out of all the ports out of an
+     * The BDDP packets are "forwarded" out of all the ports out of an
      * openflowdomain.  Get all the switches in the same openflow
      * domain as the sw (disabling tunnels).  Then get all the 
      * external switch ports and send these packets out.
@@ -922,7 +925,8 @@ public class TopologyManager implements
             // continue with the regular processing.
             if (bsn.getPayload() instanceof LLDP == false)
                 return Command.CONTINUE;
-
+            
+            // only the case when we reach here is when myid < remote controller's ID
             doFloodBDDP(sw.getId(), pi, cntx);
         } else {
             return dropFilter(sw.getId(), pi, cntx);

@@ -146,8 +146,7 @@ public class OFMessageDamper {
         DamperEntry entry = new DamperEntry(msg, sw);
 	
         if (cache.update(entry)) {
-	    System.out.println("**********Not writing the message " + msg.toString()); 
-            // entry exists in cache. Dampening.
+	    // entry exists in cache. Dampening.
             return false; 
         } else {
             sw.write(msg, cntx);

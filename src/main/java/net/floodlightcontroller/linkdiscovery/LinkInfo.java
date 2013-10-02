@@ -179,4 +179,14 @@ public class LinkInfo {
                 + ", dstPortState=" + ((dstPortState == null) ? "null" : srcPortState)
                 + "]";
     }
+
+	public LinkInfo clone ()
+	{
+		LinkInfo clone = new LinkInfo (this.firstSeenTime,
+								        this.lastLldpReceivedTime,
+								        this.lastBddpReceivedTime,
+										this.srcPortState,
+        								this.dstPortState);
+		return (clone);
+	}
 }

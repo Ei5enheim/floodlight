@@ -96,7 +96,7 @@ public class TopologyInstance {
         this.switches = new HashSet<Long>(switchPorts.keySet());
         this.switchPorts = new HashMap<Long, Set<Short>>(switchPorts);
         this.switchPortLinks = new HashMap<NodePortTuple, 
-                Set<Link>>(switchPortLinks);
+                                           Set<Link>>(switchPortLinks);
         this.broadcastDomainPorts = new HashSet<NodePortTuple>(broadcastDomainPorts);
         this.tunnelPorts = new HashSet<NodePortTuple>();
         this.blockedPorts = new HashSet<NodePortTuple>();
@@ -105,11 +105,12 @@ public class TopologyInstance {
         clusters = new HashSet<Cluster>();
         switchClusterMap = new HashMap<Long, Cluster>();
     }
+
     public TopologyInstance(Map<Long, Set<Short>> switchPorts,
                             Set<NodePortTuple> blockedPorts,
                             Map<NodePortTuple, Set<Link>> switchPortLinks,
                             Set<NodePortTuple> broadcastDomainPorts,
-                            Set<NodePortTuple> tunnelPorts){
+                            Set<NodePortTuple> tunnelPorts) {
 
         // copy these structures
         this.switches = new HashSet<Long>(switchPorts.keySet());
@@ -148,7 +149,8 @@ public class TopologyInstance {
 
 
         // Step 1.1: Add links to clusters
-        // Avoid adding blocked links to clusters
+        // Avoid adding blocked links to clusters   
+        // this is were cluster ids are computed
         addLinksToOpenflowDomains();
 
         // Step 2. Compute shortest path trees in each cluster for 
@@ -549,6 +551,7 @@ public class TopologyInstance {
         destinationRootedTrees.clear();
 
         Map<Link, Integer> linkCost = new HashMap<Link, Integer>();
+        // tunnel weigth is being set to total number of switches in the domain
         int tunnel_weight = switchPorts.size() + 1;
 
         for(NodePortTuple npt: tunnelPorts) {

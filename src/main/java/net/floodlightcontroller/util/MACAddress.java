@@ -159,6 +159,22 @@ public class MACAddress {
         return Arrays.hashCode(this.address);
     }
 
+    public static byte[] long2ByteArray(long address) 
+    {
+         byte[] result = new byte[6];
+	 int LENGTH = result.length -1;
+         long mask = 0x00000000000000FFL;
+         //long temp = 0;
+         
+         for (int i = LENGTH; i >= 0; i--)
+          {
+              //temp =  v & mask;
+              result[i] = (byte) ((address & mask) >> (8 * (LENGTH-i)));
+              mask = mask << 8;
+          }  
+          return (result);
+    }
+    
     public static String toString(byte[] address) {
         StringBuilder builder = new StringBuilder();
         for (byte b: address) {

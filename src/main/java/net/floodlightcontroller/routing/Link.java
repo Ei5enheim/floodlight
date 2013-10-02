@@ -24,13 +24,16 @@ import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 import org.openflow.util.HexString;
 
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
+
 public class Link implements Comparable<Link> {
     private long src;
     private short srcPort;
     private long dst;
     private short dstPort;
-
-
+    private flowRuleTransTable;
+    
     public Link(long srcId, short srcPort, long dstId, short dstPort) {
         this.src = srcId;
         this.srcPort = srcPort;
@@ -67,6 +70,16 @@ public class Link implements Comparable<Link> {
     @JsonSerialize(using=UShortSerializer.class)
     public short getDstPort() {
         return dstPort;
+    }
+
+    public void setFlowRuleTransTable (Rules table)
+    {
+	this.flowRuleTransTable = table;
+    }
+
+    public Rules getFlowRuleTransTable ()
+    {
+	return (this.flowRuleTransTable);
     }
 
     @Override

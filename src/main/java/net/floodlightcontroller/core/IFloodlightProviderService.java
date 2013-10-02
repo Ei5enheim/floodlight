@@ -19,9 +19,16 @@ package net.floodlightcontroller.core;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
+
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
 
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.topology.IOFFlowspace;
+import net.floodlightcontroller.routing.Link;
 
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFType;
@@ -215,4 +222,23 @@ public interface IFloodlightProviderService extends
     */
    public void addOFSwitchDriver(String desc, IOFSwitchDriver driver);
 
+   public void addFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace);
+
+   public void addNodePortFlowspace (NodePortTuple node, IOFFlowspace[] portFlowspace);
+
+   public void removeFlowspace ();
+ 
+   public void addRuleTransTables (ConcurrentMap<Link, Rules> ruleTransTables);
+
+   public void removeRuleTransTables ();
+
+   public void addRuleTransTable (Link link, Rules table);
+
+   public Rules getLinkRuleTransTable (Link link);
+
+   public addDomainMapper (Map <Long, String> domainMapper);
+ 
+   public removeDomainMapper ();
+
+   public String getSwDomain (long dpid);
 }

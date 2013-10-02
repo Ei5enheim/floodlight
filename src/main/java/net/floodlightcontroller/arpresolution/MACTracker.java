@@ -1,3 +1,8 @@
+/*
+ * Author: Rajesh Gopidi
+ * Grad student at UNC Chapel Hill
+ */
+
 package net.floodlightcontroller.arpresolution;
 
 import java.util.*;
@@ -55,11 +60,12 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         return "MACTracker";
     }
 
+    /*
     public int getID()
     {
         return 0;
     }
-
+    */
     @Override
     public boolean isCallbackOrderingPrereq(OFType type, String name) {
         // TODO Auto-generated method stub
@@ -121,27 +127,6 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
                                             EnumSet.of(OFType.PACKET_OUT),
                                             OFMESSAGE_DAMPER_TIMEOUT);
- 
-        /*try {
-
-            br = new BufferedReader(new FileReader(
-                                    new File("/home/rajesh/Documents/UNC/RENCI/Open Flow/floodlight/", "ARPtable"))); 
-        } catch (Exception io) {
-    
-            System.out.println("caught an Exception while opening the file");
-        }   
-        String line = null;
-        String[] tokens;
-        try { 
-            while ((line = br.readLine()) != null) {
-                tokens = line.split("\\s");
-                System.out.println(line);
-                arp_table.put(tokens[0], tokens[1]); 
-            }
-        } catch (Exception io) {
-            System.out.println("caught an Exception while reading the file"); 
-        }
-        */
     }
 
     public byte[] getDstMAC(Integer dstIP)
@@ -150,12 +135,11 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
             return (null);
 
         String storeName = kvStoreService.getIP2MACTable();
-
         String MACString = (String) kvStoreService.get(storeName, dstIP); 
         
         if (MACString != null) {
-            //if (logger.isTraceEnabled())
-                logger.info ("retrieved value {} for key {}",
+            if (logger.isTraceEnabled())
+                logger.trace ("retrieved value {} for key {}",
                             MACString, IPv4.fromIPv4Address(dstIP));
             MACString = MACString.substring(0, MACString.indexOf(','));
             return (Ethernet.toMACAddress(MACString));
@@ -189,11 +173,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                     destIP = arp_pkt.getTargetProtocolAddress();
                     sourceMAC = arp_pkt.getSenderHardwareAddress();
                     dstMAC = arp_pkt.getTargetHardwareAddress();
-                    logger.info("MAC  address of the destination is {}", dstMAC); 
                     if (isBroadcast(dstMAC)) {
-                        logger.info("found a BARP packet");
                         dstMAC = getDstMAC(IPv4.toIPv4Address(destIP)); 
-    
                         if (dstMAC == null)
                             return Command.CONTINUE;
                     }
@@ -207,7 +188,6 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                     eth = eth.setDestinationMACAddress(eth.getSourceMACAddress());
                     eth = eth.setSourceMACAddress(dstMAC); 
                     eth = (Ethernet) eth.setPayload((IPacket)arp_pkt);
-                    //logger.info("\n****calling push packet*****");
                     pushPacket(sw, msg, cntx, IPv4.toIPv4Address(destIP),
                                 IPv4.toIPv4Address(sourceIP));
                     return Command.STOP;
@@ -223,36 +203,29 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         OFPacketIn pi = (OFPacketIn) msg;
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                 IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-
         if (msg == null) {
             return;
         }
-
         OFPacketOut po =
                 (OFPacketOut) floodlightProvider.getOFMessageFactory()
                                                 .getMessage(OFType.PACKET_OUT);
-
         // set actions
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(new OFActionOutput(pi.getInPort(), (short) 0xffff));
-
         po.setActions(actions)
           .setActionsLength((short) OFActionOutput.MINIMUM_LENGTH);
         short poLength =
                 (short) (po.getActionsLength() + OFPacketOut.MINIMUM_LENGTH);
-
         po.setBufferId(OFPacketOut.BUFFER_ID_NONE);
         byte[] packetData = eth.serialize();
         poLength += packetData.length;
         po.setPacketData(packetData);
-
         po.setInPort(OFPort.OFPP_NONE);
         po.setLength(poLength);
 
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, po);
             if (messageDamper.write(sw, po, cntx)) {
-                logger.info("writting to the damper from MAC tracker + swDPID:"+ sw.getId());
                 sw.flush(); 
                 counterStore.updateFlush();
                 if (logger.isDebugEnabled()) {

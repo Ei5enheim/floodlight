@@ -91,5 +91,13 @@ public interface ILinkDiscoveryService extends IFloodlightService {
      * Get the map of node-port tuples from link DB
      */
     public Map<NodePortTuple, Set<Link>> getPortLinks();
+
+    public void  addLink (Link lt);
+
+    public void addLinks (Link[] links);
+
+	public void blockLinkDiscovery();
+	
+	public void enableLinkDiscovery();
     
 }

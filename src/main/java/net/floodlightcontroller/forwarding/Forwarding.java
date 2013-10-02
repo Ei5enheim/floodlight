@@ -74,6 +74,9 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
         
         // If a decision has been made we obey it
         // otherwise we just forward
+        // Imagine a firewall module running before the forwarding module and decides that
+        // the packet needs to be dropped then we need to respect that.
+        // Interesting point this one.
         if (decision != null) {
             if (log.isTraceEnabled()) {
                 log.trace("Forwaring decision={} was made for PacketIn={}",
@@ -160,7 +163,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
     
     protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi, 
                                  FloodlightContext cntx,
-                                 boolean requestFlowRemovedNotifn) {    
+                                 boolean requestFlowRemovedNotifn) {
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
 

@@ -33,7 +33,8 @@ public class Ethernet extends BasePacket {
     private static String HEXES = "0123456789ABCDEF";
     public static final short TYPE_ARP = 0x0806;
     public static final short TYPE_RARP = (short) 0x8035;
-    public static final short TYPE_IPv4 = 0x0800;
+    public static final short TYPE_IPv4 = (short) 0x0800;
+    public static final short TYPE_VLANTAGGED = (short) 0x8100;
     public static final short TYPE_LLDP = (short) 0x8849; //88CC
     public static final short TYPE_BSN = (short) 0x8942;
     public static final short VLAN_UNTAGGED = (short)0xffff;

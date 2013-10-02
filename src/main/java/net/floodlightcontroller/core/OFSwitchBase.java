@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,6 +46,8 @@ import net.floodlightcontroller.core.internal.OFStatisticsFuture;
 import net.floodlightcontroller.core.web.serializers.DPIDSerializer;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.util.TimedCache;
+import net.floodlightcontroller.topology.IOFFlowspace;
+import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -74,6 +77,9 @@ public abstract class OFSwitchBase implements IOFSwitch {
     // TODO: should we really do logging in the class or should we throw
     // exception that can then be handled by callers?
     protected static Logger log = LoggerFactory.getLogger(OFSwitchBase.class);
+
+    //domain ID
+    protected Object domain;
 
     protected ConcurrentMap<Object, Object> attributes;
     protected IFloodlightProviderService floodlightProvider;
@@ -107,6 +113,7 @@ public abstract class OFSwitchBase implements IOFSwitch {
     private Map<Integer,OFStatisticsFuture> statsFutureMap;
     private Map<Integer, IOFMessageListener> iofMsgListenersMap;
     private Map<Integer,OFFeaturesReplyFuture> featuresFutureMap;
+
     private volatile boolean connected;
     private TimedCache<Long> timedCache;
     private ReentrantReadWriteLock listenerLock;
@@ -255,6 +262,32 @@ public abstract class OFSwitchBase implements IOFSwitch {
                 }
             }
             this.datapathId = featuresReply.getDatapathId();
+            this.capabilities = featuresReply.getCapabilities();
+            this.buffers = featuresReply.getBuffers();
+            this.actions = featuresReply.getActions();
+            this.tables = featuresReply.getTables();
+            this.stringId = HexString.toHexString(this.datapathId);
+        }
+    }
+
+    @Override
+    public void setFeaturesReply (OFFeaturesReply featuresReply,
+                                 ConcurrentMap <NodePortTuple, IOFFlowspace[]> flowspace)
+    {
+        NodePortTuple node = null;
+        synchronized(portLock) {
+            this.datapathId = featuresReply.getDatapathId();
+            node = new NodePortTuple(datapathId, 0);
+            if (stringId == null) {
+                /* ports are updated via port status message, so we
+                 * only fill in ports on initial connection.
+                 */
+                for (OFPhysicalPort port : featuresReply.getPorts()) {
+                    node.setPortId(port.getPortNumber());
+                    port.setFlowspace(flowspace.get(node));
+                    setPort(port);
+                }
+            }
             this.capabilities = featuresReply.getCapabilities();
             this.buffers = featuresReply.getBuffers();
             this.actions = featuresReply.getActions();
@@ -649,7 +682,6 @@ public abstract class OFSwitchBase implements IOFSwitch {
         return capabilities;
     }
 
-
     @Override
     public byte getTables() {
         return tables;
@@ -660,4 +692,14 @@ public abstract class OFSwitchBase implements IOFSwitch {
     public void setFloodlightProvider(Controller controller) {
         floodlightProvider = controller;
     }
+
+    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, 
+							ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+	{
+		NordPortTuple switchPort = new NordPortTuple(this.datapathId, 0);
+		for (OFPhysicalPort port: portsByNumber.values()) {
+			switchPort.setPortId(port.getPortNumber());
+			port.setFlowspace(flowspace.get(switchPort));
+		}
+	}
 }
