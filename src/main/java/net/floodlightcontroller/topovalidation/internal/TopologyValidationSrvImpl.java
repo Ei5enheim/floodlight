@@ -102,7 +102,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
      *************************/
     public String getName()
     {
-        return "topologyvalidationsrvimpl";
+        return "topologyvalidation";
     }
 
     @Override
