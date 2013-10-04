@@ -231,7 +231,7 @@ public class OFMatch implements Cloneable, Serializable {
     /**
      * Get dl_vlan
      * 
-     * @return vlan tag; VLAN_NONE == no tag
+     * @return vlan tag; \ == no tag
      */
     public short getDataLayerVirtualLan() {
         return this.dataLayerVirtualLan;

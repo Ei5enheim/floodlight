@@ -5,6 +5,8 @@
 
 package net.floodlightcontroller.topology;
 
+import com.google.common.collect.Range;
+
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -1405,17 +1407,17 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         return (null);
     }
 
-    public static IOFFlowspace parseFlowspaceString (String flowspaceDef)
+    public static IOFFlowspace parseFlowspaceString (String flowspaceDef) throws FlowspaceException
     {
         IOFFlowspace flowspace = new OFFlowspace();
 	String delims="[ ]*\\^[ ]*";
-	String[] tokens = flowspaceDef.split(delims, flowspace);
+        String[] tokens = flowspaceDef.split(delims);
 
-	for (String token: tokens) {
-            parseFlowspaceComponent(token);     
-	}
+        for (String token: tokens) {
+            parseFlowspaceComponent(token, flowspace);     
+        }
         return (flowspace);
-    }
+   }
 
     private static void parseFlowspaceComponent (String str, IOFFlowspace flowspace)
                                 throws FlowspaceException
@@ -1427,43 +1429,64 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
             throw new FlowspaceException("Invalid flowspace formart encountered");
 
         String[] range;
-        String[] mask = tokens[1].split("[ ]*-[ ]*");
-        int maskStart = Integer.valueOf(mask[0]);
-        int maskEnd = Integer.valueOf(mask[1]);
-        if (mask.length != 2)
-            throw new FlowspaceException("Invalid mas"); 
+        String[] maskSubStr = tokens[1].split("[ ]*-[ ]*");
+
+        if (maskSubStr.length != 2)
+            throw new FlowspaceException("Invalid mask");
+
+        int maskStart = Integer.valueOf(maskSubStr[0]);
+        int maskEnd = Integer.valueOf(maskSubStr[1]);
+
+        Range<Integer> mask = Range.closed(maskStart, maskEnd);
         
-        if ((maskStart == VLAN_START) &&
-            (maskEnd == VLAN_END)) {
+        if (VLAN_OFFSET.encloses(mask)) {
             range = tokens[0].split("[ ]*-[ ]*");
             short vlanStart = Short.valueOf(range[0]);
-            short vlanEnd = Short.valueOf(range[1]);
-
+            short vlanEnd = vlanStart;
+            if (tokens[0].indexOf('-') > 0)
+                vlanEnd = Short.valueOf(range[1]);
             if (vlanEnd < vlanStart)
                 throw new FlowspaceException("Invalid flowspace");
-            flowspace.addDataLayerVlan(vlanStart, vlanEnd - vlanStart); 
-        } else if ((maskStart >= SRCIP_START) &&
-                    (maskEnd <= SRCIP_END)) {
-                if (range.indexOf('-') > 0)
+            flowspace.addDataLayerVlan(vlanStart, (short) (vlanEnd - vlanStart)); 
+        } else if (ETHERTYPE_OFFSET.encloses(mask)) {
+                if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
-                int srcIP = Integer.valueOf(range);
-                flowspace.addNetworkSource(srcIP, maskEnd-maskStart + 1)
-        } else if ((maskStart >= DSTIP_START) &&
-                    (maskEnd <= DSTIP_END)) {
-                if (range.indexOf('-') > 0)
+                flowspace.addDataLayerType(Short.valueOf(tokens[0]));
+        } else if (NWPROTO_OFFSET.encloses(mask)){
+                if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
-                int dstIP = Integer.valueOf(range);
-                flowspace.addNetworkDestination(dstIP, maskEnd-maskStart + 1)
+                flowspace.addNetworkProtocol(Short.valueOf(tokens[0]));
+        } else if (IP_SRC_OFFSET.encloses(mask)) {
+                if (tokens[0].indexOf('-') > 0)
+                    throw new FlowspaceException("Invalid flowspace formart encountered");
+                int srcIP = Integer.valueOf(tokens[0]);
+                flowspace.addNetworkSource(srcIP, (byte) (maskEnd-maskStart + 1));
+        } else if (IP_DST_OFFSET.encloses(mask)) {
+                if (tokens[0].indexOf('-') > 0)
+                    throw new FlowspaceException("Invalid flowspace formart encountered");
+                int dstIP = Integer.valueOf(tokens[0]);
+                flowspace.addNetworkDestination(dstIP, (byte) (maskEnd-maskStart + 1));
+        } else if (TP_SRC_OFFSET.encloses(mask)) {
+                if (tokens[0].indexOf('-') > 0)
+                    throw new FlowspaceException("Invalid flowspace formart encountered");
+                flowspace.addTPSrc(Short.valueOf(tokens[0]));
+        } else if (TP_DST_OFFSET.encloses(mask)) {
+                if (tokens[0].indexOf('-') > 0)
+                    throw new FlowspaceException("Invalid flowspace formart encountered");
+                flowspace.addTPDst(Short.valueOf(tokens[0]));
         } else {
             throw new FlowspaceException("Unsupported flowspace");
         }
 
     }
 
-    private static final int VLAN_START = 96;
-    private static final int VLAN_END = 111;
-    private static final int SRCIP_START = 136;
-    private static final int SRCIP_END = 167;
-    private static final int DSTIP_START = 168;
-    private static final int DSTIP_END = 199;
+    public static final Range <Integer> VLAN_OFFSET = Range.closed(96, 111);
+    public static final Range <Integer> SRC_MAC_OFFSET = Range.closed(0, 47);
+    public static final Range <Integer> DST_MAC_OFFSET = Range.closed(48, 95);
+    public static final Range <Integer> ETHERTYPE_OFFSET = Range.closed(112, 127);
+    public static final Range <Integer> NWPROTO_OFFSET = Range.closed(128, 135);
+    public static final Range <Integer> IP_SRC_OFFSET = Range.closed(136, 167);
+    public static final Range <Integer> IP_DST_OFFSET = Range.closed(168, 199);
+    public static final Range <Integer> TP_SRC_OFFSET = Range.closed(200, 215);
+    public static final Range <Integer> TP_DST_OFFSET = Range.closed(216, 231);
 }

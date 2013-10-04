@@ -5,7 +5,7 @@
 
 package net.floodlightcontroller.topology;
 
-public class FlowspaceException extrends Exception 
+public class FlowspaceException extends Exception 
 {
 
     private String message = null;

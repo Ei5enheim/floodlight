@@ -32,7 +32,7 @@ public class Link implements Comparable<Link> {
     private short srcPort;
     private long dst;
     private short dstPort;
-    private flowRuleTransTable;
+    private Rules flowRuleTransTable;
     
     public Link(long srcId, short srcPort, long dstId, short dstPort) {
         this.src = srcId;

@@ -236,9 +236,9 @@ public interface IFloodlightProviderService extends
 
    public Rules getLinkRuleTransTable (Link link);
 
-   public addDomainMapper (Map <Long, String> domainMapper);
+   public void addDomainMapper (Map <Long, String> domainMapper);
  
-   public removeDomainMapper ();
+   public void removeDomainMapper ();
 
    public String getSwDomain (long dpid);
 }

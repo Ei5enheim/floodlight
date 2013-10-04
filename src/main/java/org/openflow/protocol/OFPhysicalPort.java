@@ -23,6 +23,8 @@ import java.util.Arrays;
 
 import net.floodlightcontroller.core.web.serializers.ByteArrayMACSerializer;
 import net.floodlightcontroller.core.web.serializers.UShortSerializer;
+import net.floodlightcontroller.topology.IOFFlowspace;
+//import net.floodlightcontroller.topology.OFFlowspace;
 
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -34,6 +36,8 @@ import org.jboss.netty.buffer.ChannelBuffer;
 public class OFPhysicalPort {
     public static int MINIMUM_LENGTH = 48;
     public static int OFP_ETH_ALEN = 6;
+    public static int INGRESS = 0;
+    public static int EGRESS = 1;
 
     public enum OFPortConfig {
         OFPPC_PORT_DOWN    (1 << 0) {
@@ -208,6 +212,7 @@ public class OFPhysicalPort {
         }
     }
 
+    protected IOFFlowspace[] flowspace;
     protected short portNumber;
     protected byte[] hardwareAddress;
     protected String name;
@@ -233,6 +238,36 @@ public class OFPhysicalPort {
         this.portNumber = portNumber;
     }
 
+    /* Flowspace characteristics */
+    public void setFlowspace (IOFFlowspace[] flowspace)
+    {
+	this.flowspace = flowspace;
+    }
+
+    public void removeFlowspace ()
+    {
+	this.flowspace = null;
+    }
+
+    public IOFFlowspace getIngressFlowspace ()
+    {
+	return (this.flowspace[INGRESS]);
+    }
+
+    public IOFFlowspace getEgressFlowspace()
+    {
+	return (this.flowspace[EGRESS]);
+    }
+
+    public void setIngressFlowspace (IOFFlowspace flowspace)
+    {
+	this.flowspace[INGRESS] = flowspace;
+    }
+
+    public void setEgressFlowspace (IOFFlowspace flowspace)
+    {
+	this.flowspace[EGRESS] = flowspace;
+    }
     /**
      * @return the hardwareAddress
      */

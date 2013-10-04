@@ -693,10 +693,9 @@ public abstract class OFSwitchBase implements IOFSwitch {
         floodlightProvider = controller;
     }
 
-    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, 
-							ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
 	{
-		NordPortTuple switchPort = new NordPortTuple(this.datapathId, 0);
+		NodePortTuple switchPort = new NodePortTuple(this.datapathId, 0);
 		for (OFPhysicalPort port: portsByNumber.values()) {
 			switchPort.setPortId(port.getPortNumber());
 			port.setFlowspace(flowspace.get(switchPort));

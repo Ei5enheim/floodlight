@@ -33,6 +33,7 @@ import net.floodlightcontroller.packet.IPacket;
 import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.IRoutingDecision;
 import net.floodlightcontroller.routing.Route;
+import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.OFMessageDamper;
@@ -546,7 +547,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         // set input and output ports on the switch
         fm.getMatch().setInputPort(inPort);
         ((OFActionOutput)fm.getActions().get(0)).setPort(outPort);
-        fm.setMatch(wildcard(match, sw, wildcard_hints));
+        fm.setMatch(wildcard(fm.getMatch(), sw, wildcard_hints));
 
         if (sw.getId() == pinSwitch) {
             sourceSwOutport = new Integer(outPort);
@@ -572,7 +573,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                                      .getMessage(OFType.FLOW_MOD);
         OFFlowMod srcSwFm = null;
         OFActionOutput action = new OFActionOutput();
-        ArrayList<OFFlowMod> fmList = new ArrayList<OFFlowMod>();
+        LinkedList<OFFlowMod> fmList = new LinkedList<OFFlowMod>();
         action.setMaxLength((short)0xffff);
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(action);
@@ -605,9 +606,10 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                     sourceSwOutport, 1); 
         fmList.addFirst(srcSwFm);
 
-        for (int indx = 2; i < switchPortList.size()-1; indx += 2) {
+        for (int indx = 2; indx < switchPortList.size()-1; indx += 2) {
             // indx and indx+1 will always have the same switch DPID.
 
+			// This is the link between the present node and the downstream node
             link = new Link(switchPortList.get(indx-1).getNodeId(),
                             switchPortList.get(indx-1).getPortId(),
                             switchPortList.get(indx).getNodeId(),
@@ -615,12 +617,12 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             table = floodlightProvider.getLinkRuleTransTable(link);
 
             if (table == null) {
-                log.trace("Non-Virtual Link {}", link);
+                logger.trace("Non-Virtual Link {}", link);
             } else {
-                packetData = table.translate(packetData);
+                packetData = table.getPacketHeader(packetData);
             }
 
-            fm.getMatch().loadFromPacket(packetData);
+            fm.getMatch().loadFromPacket(packetData, (short)0x0000);
             setActionOutputFlowMod (srcSwFm, switchPortList,
                                         wildcard_hints, pinSwitch,
                                         sourceSwOutport, 1);
@@ -644,7 +646,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     {
         OFFlowMod fm = null;
         int i = 0;
-        for (int ind = switchPortList.size -1; indx > 0; indx -=2) {
+        for (int indx = switchPortList.size() -1; indx > 0; indx -=2) {
             long switchDPID = switchPortList.get(indx).getNodeId();
             IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
             if (sw == null) {

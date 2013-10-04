@@ -7,11 +7,16 @@ package net.floodlightcontroller.topovalidation;
 
 import java.util.List;
 import java.util.HashMap;
+import java.util.Map;
+
+
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
 
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.routing.Link;
-import net.floodlightcontroller.topovalidation.IOFFlowspace;
+import net.floodlightcontroller.topology.IOFFlowspace;
 
 public interface ITopoValidationService extends IFloodlightService
 {
@@ -23,9 +28,11 @@ public interface ITopoValidationService extends IFloodlightService
                                  Map<Link, Rules> ruleTransTables, 
                                  boolean completeFlowspace);
 
+    /*
     public boolean validateTopology (List<NodePortTuple> switchPorts,
                                      Map<Link, Rules> ruleTransTables,
                                      boolean completeFlowspace);
+    */
 
     public boolean validateTopology (List<Link> links,
 				     Map<Link, Rules> ruleTransTables,

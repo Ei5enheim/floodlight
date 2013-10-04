@@ -106,7 +106,7 @@ public interface IOFFlowspace
                                     Boolean> dataLayerVlan);
     public IOFFlowspace addDataLayerVlan (short dataLayerVlan);
     public IOFFlowspace addDataLayerVlan (short dataLayerVlan,
-                                            short range);
+                                          short range);
     public IOFFlowspace blockDataLayerVlan (short dataLayerVlan,
                                             short range);
     public IOFFlowspace blockDataLayerVlan (short dataLayerVlan);
@@ -150,14 +150,13 @@ public interface IOFFlowspace
     public IOFFlowspace addNetworkSource (IPv4Address ip,
                                             boolean bool);
     public IOFFlowspace addNetworkSource (int networkAddress,
-                                            byte mask);
+                                           byte mask);
     public IOFFlowspace addNetworkSource (IPv4Address ip);
     public IOFFlowspace blockNetworkSource (int networkAddress,
                                             byte mask);
     public IOFFlowspace blockNetworkSource (IPv4Address ip);
     public IOFFlowspace removeNetworkSource (IPv4Address ip);
     public IOFFlowspace removeNetworkSource (int ip, byte range);
-
     public byte getRandomNetworkTOS ();
     public boolean verifyNetworkTOS (byte tos);
     public IOFFlowspace setNetworkTOS (long networkTOS);

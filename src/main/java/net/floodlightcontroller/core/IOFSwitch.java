@@ -122,15 +122,17 @@ public interface IOFSwitch {
      */
     public void write(OFMessage m, FloodlightContext bc) throws IOException; 
     
+    
     /**
-     * Writes the list of messages to the output stream
+     * Writes the list of messages to the output stream, bypassing rate limiting.
      * The message will be handed to the floodlightProvider for possible filtering
      * and processing by message listeners.
      * @param msglist
      * @param bc
      * @throws IOException
      */
-    
+    public void write(List<OFMessage> msglist, FloodlightContext bc) throws IOException;
+
     /**
      * 
      * @throws IOException
@@ -497,15 +499,10 @@ public interface IOFSwitch {
      */
     public List<Short> getUplinkPorts();
 
-    public void setDomainId (Object id);
+    //public void setDomainId (Object id);
 
-    public void getDomainId (Object id);
+    //public void getDomainId (Object id);
 
-    public boolean getStatus ();
-    
-    public void setStatus (boolean status);
-
-    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, 
-				 	ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace);
+    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace);
 
 }
