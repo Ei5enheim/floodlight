@@ -2262,8 +2262,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         Role role = floodlightProvider.getRole();
         if (role == null || role == Role.MASTER) {
             log.trace("Setup: Rescheduling discovery task. role = {}", role);
-            discoveryTask.reschedule(DISCOVERY_TASK_INTERVAL,
-                                     TimeUnit.SECONDS);
+            //discoveryTask.reschedule(DISCOVERY_TASK_INTERVAL,
+                                     //TimeUnit.SECONDS);
         } else {
             log.trace("Setup: Not scheduling LLDP as role = {}.", role);
         }
