@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.ConcurrentMap;
 
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IOFMessageListener;
@@ -33,6 +34,9 @@ import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.IFloodlightProviderService.Role;
 import net.floodlightcontroller.core.internal.Controller;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
+import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.topology.IOFFlowspace;
+
 
 import org.jboss.netty.channel.Channel;
 import org.openflow.protocol.OFFeaturesReply;
@@ -77,7 +81,12 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
         assertEquals(expected, writtenMessage);
         assertEquals(expectedContext, writtenContext);
     }
-    
+
+    public void setFeaturesReply(OFFeaturesReply featuresReply,
+                 ConcurrentMap <NodePortTuple, IOFFlowspace[]> flowspace)
+    {
+
+    }
     /*
      * assert that no message was written 
      */
@@ -418,6 +427,11 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     public boolean attributeEquals(String name, Object other) {
         fail("Unexpected method call");
         return false;
+    }
+
+    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+    {
+
     }
 
 }

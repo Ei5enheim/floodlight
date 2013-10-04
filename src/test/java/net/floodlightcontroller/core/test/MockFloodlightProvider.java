@@ -45,6 +45,12 @@ import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.util.ListenerDispatcher;
 import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.topology.IOFFlowspace;
+import net.floodlightcontroller.routing.Link;
+
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
 
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
@@ -192,6 +198,55 @@ public class MockFloodlightProvider implements IFloodlightModule, IFloodlightPro
     }
     
     public void terminate() {
+    }
+
+    public void addFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace) {
+
+    }    
+
+    public void addNodePortFlowspace (NodePortTuple node, IOFFlowspace[] portFlowspace)
+    {
+
+    }
+
+    public void removeFlowspace ()
+    {
+
+    }
+ 
+    public void addRuleTransTables (ConcurrentMap<Link, Rules> ruleTransTables)
+    {
+
+    }
+
+    public void removeRuleTransTables ()
+    {
+
+    }
+
+    public void addRuleTransTable (Link link, Rules table)
+    {
+
+    }
+
+    public Rules getLinkRuleTransTable (Link link)
+    {
+        return (null);
+    }
+
+    public void addDomainMapper (Map <Long, String> domainMapper)
+    {
+
+    }
+ 
+    public void removeDomainMapper ()
+    {
+
+    }
+
+    public String getSwDomain (long dpid)
+    {
+        return (null);
     }
 
     @Override
