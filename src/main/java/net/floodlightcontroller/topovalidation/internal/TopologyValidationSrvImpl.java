@@ -6,16 +6,21 @@
 package net.floodlightcontroller.topovalidation.internal;
 
 import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Collection;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.EnumSet;
 import java.io.IOException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
 
 import org.openflow.protocol.OFType;
 import org.openflow.protocol.OFFlowMod;
@@ -26,14 +31,18 @@ import org.openflow.protocol.OFPacketOut;
 import org.openflow.protocol.OFPort;
 import org.openflow.protocol.action.OFAction;
 import org.openflow.protocol.action.OFActionOutput;
+import org.openflow.protocol.action.OFActionDataLayer;
 import org.openflow.protocol.action.OFActionDataLayerDestination;
 import org.openflow.protocol.action.OFActionDataLayerSource;
 import org.openflow.protocol.OFPhysicalPort;
 import org.openflow.util.HexString;
 
+import net.floodlightcontroller.threadpool.IThreadPoolService;
+import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.core.IOFMessageListener;
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
@@ -63,28 +72,30 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                                 IFloodlightModule,
                                                 IOFMessageListener
 {
-    protected static Logger log = LoggerFactory.getLogger(TopologyValidationImpl.class);
+    protected static Logger log = LoggerFactory.getLogger(TopologyValidationSrvImpl.class);
     protected IFloodlightProviderService floodlightProvider;
     protected TopoLock lock;
     protected ScheduledExecutorService ses;
     protected ILinkDiscoveryService linkInfo;
     protected OFMessageDamper messageDamper;
     protected ICounterStoreService counterStore;
+    protected IThreadPoolService threadPool;
 
+    /*
     private static class WorkerThread implements Runnable
     {
         public void run()
         {
             synchronized (lock) {
                 if ((lock.getRetryCount() > 3) ||
-                    (lock.checkValidationStatus()) {
+                    lock.checkValidationStatus()) {
                     lock.notifyAll();
                 } else {
                    ses.schedule(this, RETRY_INTERVAL, TimeUnit.MILLISECONDS);
                 }
             }
         }
-    }
+    }*/
 
     /**************************
         IMessageListeners
@@ -95,7 +106,14 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     }
 
     @Override
-    public boolean isCallbackOrderingPostreq(OFType type, String name) {
+    public boolean isCallbackOrderingPrereq(OFType type, String name)
+    {
+        return (false);
+    }
+
+    @Override
+    public boolean isCallbackOrderingPostreq(OFType type, String name)
+    {
         // TODO Auto-generated method stub
         return (type.equals(OFType.PACKET_IN)); 
     }
@@ -144,7 +162,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
                                             EnumSet.of(OFType.PACKET_OUT),
                                             OFMESSAGE_DAMPER_TIMEOUT);
-        this.counterStore = context.getServiceImpl(ICounterStoreServicec.class);
+        this.counterStore = context.getServiceImpl(ICounterStoreService.class);
         lock = new TopoLock();
     }
 
@@ -192,9 +210,17 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
             return (false);
         }
 
+        if (!isOutgoingDiscoveryAllowed(link.getDst(), 
+                                        link.getDstPort())) {
+            if (log.isDebugEnabled())
+                log.debug("destination port of the link {}--> {} is blocked",
+                            link.getSrc(), link.getDst());
+            return (false);
+        }
+
         IOFSwitch srcSw = floodlightProvider.getSwitches().get(link.getSrc());
         IOFSwitch dstSw = floodlightProvider.getSwitches().get(link.getDst());
-        IOFFlowspace flowspace = srcSw.getPort().getEgressFlowspace();
+        IOFFlowspace flowspace = srcSw.getPort(link.getSrcPort()).getEgressFlowspace();
 
         if (flowspace != null)
             po = generatePacketOut(srcSw,
@@ -251,13 +277,14 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         return (true);
     }
 
+    /*
     public boolean validateTopology (List<NodePortTuple> switchPorts,
                                      Map<Link, Rules> ruleTransTables,
                                      boolean completeFlowspace)
     {
 
         return (true);
-    }
+    }*/
 
     public boolean validateLink (Link link,
                                  Rules ruleTransTable,
@@ -498,8 +525,8 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                           .setDestinationMACAddress(STANDARD_DST_MAC_STRING)
                                           .setEtherType(Ethernet.TYPE_IPv4);
         IPv4 ipHeader = new IPv4();
-        ipHeader.setSourceAddress(src)
-            .setDestinationAddress(dst)
+        ipHeader.setSourceAddress(STANDARD_IPV4_SRC_ADDRESS)
+            .setDestinationAddress(STANDARD_IPV4_DST_ADDRESS)
             .setProtocol((byte) 0x06)
             .setTtl((byte) 255);
         ipHeader.setParent(ethernet);
@@ -582,8 +609,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                 Rules ruleTransTable,
                                 short inPort)
     {
-        FlowSpace flowspace;
-
         long cookie = AppCookie.makeCookie(VALIDATION_APP_ID, 0);
 
         OFFlowMod fm =
@@ -630,7 +655,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         wildcard_hints = wildcard_hints | OFMatch.OFPFW_DL_VLAN;
                                         //| OFMatch.OFPFW_NW_SRC_MASK
                                         //| OFMatch.OFPFW_NW_DST_MASK;
-        fm.getmatch().setWildcards(wildcard_hints);
+        fm.getMatch().setWildcards(wildcard_hints);
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
             if (log.isTraceEnabled()) {
@@ -679,6 +704,37 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         return true;
     }
 
+
+    /**
+     * Check if outgoing discovery messages are enabled or not.
+     * @param sw
+     * @param port
+     * @param isStandard
+     * @param isReverse
+     * @return
+     */
+    protected boolean isOutgoingDiscoveryAllowed(long sw, short port)
+    {
+
+        IOFSwitch iofSwitch = floodlightProvider.getSwitches().get(sw);
+        if (iofSwitch == null) {
+            return false;
+        }
+
+        if (port == OFPort.OFPP_LOCAL.getValue()) return false;
+
+        OFPhysicalPort ofpPort = iofSwitch.getPort(port);
+        if (ofpPort == null) {
+            if (log.isTraceEnabled()) {
+                log.trace("Null physical port. sw={}, port={}",
+                          HexString.toHexString(sw), port);
+            }
+            return false;
+        }
+
+        return true;
+    }
+
     private static final byte[] STANDARD_DST_MAC_STRING = HexString.fromHexString(
                                                                 "01:80:c2:12:34:56");
     private static final int STANDARD_IPV4_DST_ADDRESS = IPv4.toIPv4Address("10.1.1.2");
@@ -690,4 +746,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     public static short FLOWMOD_DEFAULT_HARD_TIMEOUT = 0; // infinite
     protected final int PRIMARY_CHECK_INTERVAL = 1; // in seconds.
     protected final int RETRY_INTERVAL = 200; // 100 ms.
+    protected static int OFMESSAGE_DAMPER_CAPACITY = 10000;
+    protected static int OFMESSAGE_DAMPER_TIMEOUT = 250; // ms
 }

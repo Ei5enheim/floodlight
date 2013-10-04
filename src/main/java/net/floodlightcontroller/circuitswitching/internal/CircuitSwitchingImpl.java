@@ -8,11 +8,11 @@ package net.floodlightcontroller.circuitswitching.internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.circuitswitching.CircuitSwitchingBase;
 import net.floodlightcontroller.circuitswitching.ICircuitSwitching;
 import net.floodlightcontroller.circuitswitching.CircuitIDGen;
 import net.floodlightcontroller.core.IOFSwitchListener;
+import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.FloodlightContext;
@@ -260,8 +260,9 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
     private long byteArray2Long(byte[] array)
     {
         long value = 0;
+	int LENGTH = array.length;
         
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < LENGTH; i++)
         {
             value = (value << 8) | (array[i] & 0x00FF);    
         }
@@ -271,13 +272,14 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
     private byte[] long2ByteArray (long v)
     {
          byte[] result = new byte[6];
+	 int LENGTH = result.length -1;
          long mask = 0x00000000000000FFL;
          long temp = 0;
          
-         for (int i = 5; i >= 0; i--)
+         for (int i = LENGTH; i >= 0; i--)
           {
               temp =  v & mask;
-              result[i] = (byte) (temp >> (8 * (5-i)));
+              result[i] = (byte) (temp >> (8 * (LENGTH-i)));
               mask = mask << 8;
           }  
           return (result);
@@ -306,8 +308,8 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                 log.trace("PATHID {},{} has already been generated in the past",
                             dstMac, srcMac);
             LinkedList<byte[]> rv = new LinkedList<byte[]>();
-            rv.add(long2ByteArray(dstMac));
-            rv.add(long2ByteArray(srcMac));
+            rv.add(MACAddress.long2ByteArray(dstMac));
+            rv.add(MACAddress.long2ByteArray(srcMac));
             return (rv);      
         }
         

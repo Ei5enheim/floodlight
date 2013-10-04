@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +32,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.Stack;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,6 +69,12 @@ import net.floodlightcontroller.storage.IStorageSourceService;
 import net.floodlightcontroller.storage.StorageException;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.util.LoadMonitor;
+import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.topology.IOFFlowspace;
+import net.floodlightcontroller.routing.Link;
+
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -122,7 +128,6 @@ import org.openflow.vendor.nicira.OFRoleReplyVendorData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * The main controller class.  Handles all setup and network listeners
  */
@@ -144,7 +149,8 @@ public class Controller implements IFloodlightProviderService,
 
     // The activeSwitches map contains only those switches that are actively
     // being controlled by us -- it doesn't contain switches that are
-    // in the slave role
+    // in the slave role. As part of delegation modification we are going to add 
+    // switch to this map when we read it from the graph
     protected ConcurrentHashMap<Long, IOFSwitch> activeSwitches;
     // connectedSwitches contains all connected switches, including ones where
     // we're a slave controller. We need to keep track of them so that we can
@@ -219,6 +225,25 @@ public class Controller implements IFloodlightProviderService,
     protected final boolean overload_drop =
         Boolean.parseBoolean(System.getProperty("overload_drop", "false"));
     protected final LoadMonitor loadmonitor = new LoadMonitor(log);
+
+    protected ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace;
+
+    /* Map from link to Translation table for
+     * non Physically connected links
+     */
+    protected ConcurrentMap<Link, Rules> ruleTransTables;
+
+    /* A flag to ensure if switches connected to the controller 
+     * before delegations are ready
+     */
+    boolean ports2BUpdated = false;
+
+    /* Map to keep track of the ports that are to be linked with
+     * their respective flowspaces
+     * protected ConcurrentMap<OFPhysicalPort, Object> ports2BUpdated;
+     */
+
+    protected Map<Long, String> domainMapper; 
 
     /**
      *  Updates handled by the main loop
@@ -552,7 +577,7 @@ public class Controller implements IFloodlightProviderService,
         }
 
         @Override
-        public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e)
+        public void channelIdle (ChannelHandlerContext ctx, IdleStateEvent e)
                 throws Exception {
             List<OFMessage> msglist = new ArrayList<OFMessage>(1);
             msglist.add(factory.getMessage(OFType.ECHO_REQUEST));
@@ -779,7 +804,10 @@ public class Controller implements IFloodlightProviderService,
                         channel.getRemoteAddress());
                 return;
             }
-
+            
+            // For now, we don't add anything to the sorted list
+            // we need to revisit this code when we start binding switches to   
+            // a driver
             for (String desc : switchDescSortedList) {
                 if (state.description.getManufacturerDescription()
                         .startsWith(desc)) {
@@ -790,15 +818,28 @@ public class Controller implements IFloodlightProviderService,
                     }
                 }
             }
+            // Need to add a check here to see if we have already added
+            // the switch to the active switch lists
+            
             if (sw == null) {
+                sw = activeSwitches.get(state.featuresReply.getDatapathId());
+                if (sw == null) {
                 sw = new OFSwitchImpl();
+                }
             }
-
+            // As a precaution, incase we add the switch before it is connected
+            sw.setConnected(true);
             // set switch information
             sw.setChannel(channel);
             sw.setFloodlightProvider(Controller.this);
             sw.setThreadPoolService(threadPool);
-            sw.setFeaturesReply(state.featuresReply);
+            // In Openflow 1 spec, we get port info as an array
+            if (flowspace == null) {
+                ports2BUpdated = true;
+                sw.setFeaturesReply(state.featuresReply);
+            } else {
+                sw.setFeaturesReply(state.featuresReply, flowspace);
+	    }
             sw.setSwitchProperties(state.description);
             readPropertyFromStorage();
 
@@ -1059,9 +1100,17 @@ public class Controller implements IFloodlightProviderService,
     // Message handlers
     // ****************
 
-    protected void handlePortStatusMessage(IOFSwitch sw, OFPortStatus m) {
+    protected void handlePortStatusMessage(IOFSwitch sw, OFPortStatus m)
+    {
         short portNumber = m.getDesc().getPortNumber();
+        NodePortTuple node = new NodePortTuple(sw.getId(), portNumber);
         OFPhysicalPort port = m.getDesc();
+
+        if (flowspace == null)
+            ports2BUpdated = true;
+        else 
+            port.setFlowspace(flowspace.get(node));
+
         if (m.getReason() == (byte)OFPortReason.OFPPR_MODIFY.ordinal()) {
             sw.setPort(port);
             log.debug("Port #{} modified for {}", portNumber, sw);
@@ -1392,6 +1441,71 @@ public class Controller implements IFloodlightProviderService,
         }
     }
 
+    // Internal Utility methods
+    // need to modify these to merge two flowspaces
+    public void addFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+    {
+        this.flowspace = flowspace;
+
+        if (ports2BUpdated) {
+            for (IOFSwitch sw: activeSwitches.values()) {
+                sw.setPortsFlowspace(flowspace);
+            }
+        }
+        ports2BUpdated = false;
+    }
+
+    public void addNodePortFlowspace (NodePortTuple node, IOFFlowspace[] portFlowspace)
+    {
+        if (flowspace == null) {
+            flowspace = new ConcurrentHashMap<NodePortTuple, IOFFlowspace[]>();
+            ports2BUpdated = false;
+        }
+        this.flowspace.put(node, portFlowspace);
+    }
+
+    public void removeFlowspace ()
+    {
+        this.flowspace = null;
+    }
+
+    public void addRuleTransTables (ConcurrentMap<Link, Rules> ruleTransTables)
+    {
+        this.ruleTransTables = ruleTransTables;
+    }
+
+    public void removeRuleTransTables ()
+    {
+        this.ruleTransTables = null;
+    }
+
+    public void addRuleTransTable (Link link, Rules table)
+    {
+        if (ruleTransTables == null) {
+            ruleTransTables = new ConcurrentHashMap<Link, Rules>();
+        }
+        this.ruleTransTables.put(link, table);
+    }
+
+    public Rules getLinkRuleTransTable (Link link)
+    {
+        return ruleTransTables.get(link);
+    } 
+
+    public void addDomainMapper (Map<Long, String> domainMapper)
+    {
+	this.domainMapper = domainMapper;
+    }
+
+    public void removeDomainMapper ()
+    {
+	this.domainMapper = null;
+    }
+
+    public String getSwDomain (long dpid)
+    {
+	return (domainMapper.get(dpid));
+    }
     // ***************
     // IFloodlightProvider
     // ***************
@@ -1768,6 +1882,8 @@ public class Controller implements IFloodlightProviderService,
         this.roleChanger = new RoleChanger(this);
         initVendorMessages();
         this.systemStartTime = System.currentTimeMillis();
+        //this.flowspace = new ConcurrentHashMap<NodePortTuple, IOFFlowspace[]>();
+		//this.ports2BUpdated = new ConcurrentHashMap<OFPhysicalPort, Object> ();
     }
 
     /**

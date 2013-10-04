@@ -1148,8 +1148,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     	    // they weren't set to null in the previous block of code.
     	    writeLinkToStorage(lt, info);
     	                
-    	    updateOperation = getUpdateOperation(newInfo.getSrcPortState(),
-                                            newInfo.getDstPortState());
+    	    updateOperation = getUpdateOperation(info.getSrcPortState(),
+                                                info.getDstPortState());
     	    if (log.isTraceEnabled()) {
     	        log.trace("Updated link {}", lt);
     	    }
@@ -1182,7 +1182,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                     OFPhysicalPort.OFPortState.OFPPS_STP_FORWARD.getValue());
 	try {
             lock.writeLock().lock();
-            for (link lt: links) {
+            for (Link lt: links) {
                 srcNpt = new NodePortTuple(lt.getSrc(), lt.getSrcPort());
                 dstNpt = new NodePortTuple(lt.getDst(), lt.getDstPort());
 
@@ -1214,8 +1214,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                 // they weren't set to null in the previous block of code.
                 writeLinkToStorage(lt, info);
 
-                updateOperation = getUpdateOperation(newInfo.getSrcPortState(),
-                                                    newInfo.getDstPortState());
+                updateOperation = getUpdateOperation(info.getSrcPortState(),
+                                                        info.getDstPortState());
                 if (log.isTraceEnabled()) {
                     log.trace("Updated link {}", lt);
                 }

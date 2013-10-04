@@ -69,16 +69,11 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
     protected HashMap<Integer, String>  map;
 
     /**************************
-        IFloodlightModule 
+        IOFMessageListener
      *************************/
     public String getName()
     {
         return "VoldemortClientImpl";
-    }
-
-    public int getID()
-    {
-        return 0;
     }
 
     public boolean isCallbackOrderingPrereq(OFType type, String name)
@@ -90,6 +85,10 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
     {
         return (false);
     }
+
+    /**************************
+        IFloodlightModule 
+     *************************/
     
     @Override
     public Collection<Class<? extends IFloodlightService>> getModuleServices()
@@ -161,14 +160,14 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
                     IP = getValue("host", element);
                     port = getValue("socket-port", element);
                     map.put(nodeNumber++, "tcp://"+IP+":"+port); 
-                    System.out.println("*********host="+IP+"********");
+                    //System.out.println("*********host="+IP+"********");
                 }
             }
         } catch (Exception e) {
             System.err.println("Caught an Exception");
             e.printStackTrace();
         }
-        System.out.println("*******was to read the map*******");
+        //System.out.println("*******was to read the map*******");
     }
 
     private int getRandomInt(int MAX)

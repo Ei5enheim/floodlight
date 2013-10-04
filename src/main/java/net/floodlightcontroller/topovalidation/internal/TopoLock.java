@@ -11,6 +11,7 @@ public class TopoLock
     int verifyCnt;
     int retryCount;
     boolean inProgress;
+    boolean isTopoValid;
 
     public TopoLock ()
     {
@@ -25,7 +26,7 @@ public class TopoLock
     public void incrVerifiedCnt()
     {
         synchronized (this) {
-			if (inProgress)
+	    if (inProgress)
             	verifiedCnt++;
         }
     }
@@ -35,20 +36,20 @@ public class TopoLock
         inProgress = false;
     }
 
-	public void taskInProgress()
-	{
-		inProgress = true;
-	}
+    public void taskInProgress()
+    {
+        inProgress = true;
+    }
 
-	public void getTaskStatus()
-	{
-		return (inProgress);
-	}
+    public boolean getTaskStatus()
+    {
+        return (inProgress);
+    }
 
-	public void setTopoValidStatus()
-	{
-		isTopoValid = true;	
-	}
+    public void setTopoValidStatus()
+    {
+        isTopoValid = true;	
+    }
 
     public boolean checkValidationStatus ()
     {
@@ -57,19 +58,19 @@ public class TopoLock
 
     public void incrementRetryCount ()
     {
-		retryCount++;
+        retryCount++;
     }
 
-	public void reset ()
-	{
-		verifiedCnt = 0;
-		verifyCnt = 0;
-		inProgress = false;
-		retryCount = 0;
-	}
+    public void reset ()
+    {
+        verifiedCnt = 0;
+        verifyCnt = 0;
+        inProgress = false;
+        retryCount = 0;
+    }
 
     public int getRetryCount ()
     {
-		return (retryCount);
+        return (retryCount);
     }
 }
