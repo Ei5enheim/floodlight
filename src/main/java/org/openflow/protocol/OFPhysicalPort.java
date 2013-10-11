@@ -24,7 +24,7 @@ import java.util.Arrays;
 import net.floodlightcontroller.core.web.serializers.ByteArrayMACSerializer;
 import net.floodlightcontroller.core.web.serializers.UShortSerializer;
 import net.floodlightcontroller.topology.IOFFlowspace;
-//import net.floodlightcontroller.topology.OFFlowspace;
+import net.floodlightcontroller.topology.OFFlowspace;
 
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -241,32 +241,42 @@ public class OFPhysicalPort {
     /* Flowspace characteristics */
     public void setFlowspace (IOFFlowspace[] flowspace)
     {
-	this.flowspace = flowspace;
+		this.flowspace = flowspace;
     }
 
     public void removeFlowspace ()
     {
-	this.flowspace = null;
+		this.flowspace = null;
     }
 
     public IOFFlowspace getIngressFlowspace ()
     {
-	return (this.flowspace[INGRESS]);
+		if (flowspace != null)	
+			return (this.flowspace[INGRESS]);
+		else
+			return null;
     }
 
     public IOFFlowspace getEgressFlowspace()
     {
-	return (this.flowspace[EGRESS]);
+		if (flowspace != null)
+			return (this.flowspace[EGRESS]);
+		else
+			return null;
     }
 
     public void setIngressFlowspace (IOFFlowspace flowspace)
     {
-	this.flowspace[INGRESS] = flowspace;
+		if (flowspace == null)
+			flowspace = new OFFlowspace[2];
+		this.flowspace[INGRESS] = flowspace;
     }
 
     public void setEgressFlowspace (IOFFlowspace flowspace)
     {
-	this.flowspace[EGRESS] = flowspace;
+		if (flowspace == null)
+			flowspace = new OFFlowspace[2];
+		this.flowspace[EGRESS] = flowspace;
     }
     /**
      * @return the hardwareAddress
