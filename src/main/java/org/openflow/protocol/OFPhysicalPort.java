@@ -267,15 +267,15 @@ public class OFPhysicalPort {
 
     public void setIngressFlowspace (IOFFlowspace flowspace)
     {
-		if (flowspace == null)
-			flowspace = new IOFFlowspace[2];
+		if (this.flowspace == null)
+			this.flowspace = new IOFFlowspace[2];
 		this.flowspace[INGRESS] = flowspace;
     }
 
     public void setEgressFlowspace (IOFFlowspace flowspace)
     {
-		if (flowspace == null)
-			flowspace = new IOFFlowspace[2];
+		if (this.flowspace == null)
+			this.flowspace = new IOFFlowspace[2];
 		this.flowspace[EGRESS] = flowspace;
     }
     /**
