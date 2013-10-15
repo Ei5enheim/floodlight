@@ -276,15 +276,18 @@ public class LinkDiscoveryManager implements IOFMessageListener,
      * 
      * @return LLDP timeout value in seconds
      */
-    public int getLldpTimeout() {
+    public int getLldpTimeout() 
+    {
         return LINK_TIMEOUT;
     }
 
-    public Map<NodePortTuple, Set<Link>> getPortLinks() {
+    public Map<NodePortTuple, Set<Link>> getPortLinks() 
+    {
         return portLinks;
     }
 
-    public Set<NodePortTuple> getSuppressLLDPsInfo() {
+    public Set<NodePortTuple> getSuppressLLDPsInfo() 
+    {
         return suppressLinkDiscovery;
     }
 
@@ -374,7 +377,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     {
 
         // Ignore for now
-        /*
+       
         // timeout known links.
         timeoutLinks();
 
@@ -384,7 +387,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         if (lldpClock == 0) {
             log.debug("Sending LLDP out on all ports.");
             discoverOnAllPorts();
-        }*/
+        }
     }
 
     /**
@@ -1738,7 +1741,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                     info.setUnicastValidTime(null);
 
                     if (info.getMulticastValidTime() != null)
-                                                             addLinkToBroadcastDomain(lt);
+                        addLinkToBroadcastDomain(lt);
                     // Note that even if mTime becomes null later on,
                     // the link would be deleted, which would trigger
                     // updateClusters().
@@ -2226,13 +2229,13 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
 
         // Need to uncomment this part when LLDP is needed.
-        /*
+        
         // To be started by the first switch connection
         discoveryTask = new SingletonTask(ses, new Runnable() {
             @Override
             public void run() {
                 try {
-                    //if (topoVerified)
+                    if (topoVerified)
                         discoverLinks();
                 } catch (StorageException e) {
                     log.error("Storage exception in LLDP send timer; "
@@ -2256,7 +2259,6 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                 }
             }
         });
-        */
 
         // null role implies HA mode is not enabled.
         Role role = floodlightProvider.getRole();
@@ -2279,7 +2281,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             public void run() {
                 while (true) {
                     try {
-                            doUpdatesThread();
+                        doUpdatesThread();
                     } catch (InterruptedException e) {
                         return;
                     }
