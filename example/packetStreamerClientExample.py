@@ -60,7 +60,7 @@ controller = options.controller
 host = options.mac
 
 url = 'http://%s:8080/wm/core/packettrace/json' % controller
-filter = {'mac':host, 'direction':'both', 'period':1000}
+filter = {'mac':host, 'direction':'in', 'period':1000}
 post_data = json.dumps(filter)
 request = urllib2.Request(url, post_data, {'Content-Type':'application/json'})
 response_text = None

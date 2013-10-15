@@ -832,12 +832,13 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
         if (eth.getPayload() instanceof ARP) {
             ARP arp = (ARP) eth.getPayload();
             // ARP packet contains source's MAC address as well as IP address
-	    logger.info("packet protocol type {}, compare against {}, hw addr {}, {}", new Object[] {arp.getProtocolType(), 								ARP.PROTO_TYPE_IP,
-							Ethernet.toLong(arp.getSenderHardwareAddress()),
-							dlAddr});
+	    	logger.info("packet protocol type {}, compare against {}, hw addr {}, {}", new Object[] {
+						arp.getProtocolType(), ARP.PROTO_TYPE_IP,
+						Ethernet.toLong(arp.getSenderHardwareAddress()),
+						dlAddr});
             if ((arp.getProtocolType() == ARP.PROTO_TYPE_IP) &&
                     (Ethernet.toLong(arp.getSenderHardwareAddress()) == dlAddr)) {
-		logger.info("returning the source protocol address");
+				logger.info("returning the source protocol address");
                 return IPv4.toIPv4Address(arp.getSenderProtocolAddress());
             }
         } 
@@ -863,7 +864,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
 
         short vlan = eth.getVlanID();
         int nwSrc = getSrcNwAddr(eth, dlAddr);
-	logger.info("source network address is {}", nwSrc);
+		logger.info("source network address is {}", nwSrc);
         return new Entity(dlAddr,
                           ((vlan >= 0) ? vlan : null),
                           ((nwSrc != 0) ? nwSrc : null),
@@ -1090,7 +1091,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                 if (device == null) {
                     // This can happen due to concurrent modification 
                     if (logger.isDebugEnabled()) {
-                        logger.debug("No device for deviceKey {} while "
+                        logger.debug("No device for deviceKey {} "
                                      + "while processing entity {}",
                                      deviceKey, entity);
                     }

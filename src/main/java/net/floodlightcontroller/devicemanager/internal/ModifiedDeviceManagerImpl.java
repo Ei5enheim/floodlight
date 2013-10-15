@@ -194,9 +194,9 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
 
         IP = node.getIpv4Address();
         if (IP == null) {
-	    logger.info("ip address is null");
-            return;
-	}
+	    	logger.info("ip address is null");
+        	return;
+		}
 
 	if (node.getMacAddress() == 0) {
 	    logger.info("dst MAC address is null");

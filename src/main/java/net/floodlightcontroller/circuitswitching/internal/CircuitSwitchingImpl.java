@@ -556,7 +556,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
 
     protected void doFlood(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx)
     {
-        log.info("Flooding the broadcast packet {}", pi);
+        //log.info("Flooding the broadcast packet {}", pi);
         if (topology.isIncomingBroadcastAllowed(sw.getId(),
                                                 pi.getInPort()) == false) {
             if (log.isTraceEnabled()) {

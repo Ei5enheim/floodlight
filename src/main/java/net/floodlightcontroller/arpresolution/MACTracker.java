@@ -229,8 +229,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                 sw.flush(); 
                 counterStore.updateFlush();
                 if (logger.isDebugEnabled()) {
-                    logger.debug("sent out ARP reply for the host IP {} as host"+
-                                 " source IP {}", IPv4.fromIPv4Address(dstIP),
+                    logger.debug("sent out ARP reply for the host IP {} on behalf of"+
+                                 "host IP {}", IPv4.fromIPv4Address(dstIP),
                                  IPv4.fromIPv4Address(srcIP));
                 }
             }
