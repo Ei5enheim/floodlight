@@ -647,7 +647,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             void sendDiscoveryMessage(long sw, short port,
                                       boolean isStandard, boolean isReverse) {
 
-        log.trace("Trying to send LLDP packet out of swich: {}, port: {}", HexString.toHexString(sw), port);
+        log.trace("Trying to send LLDP packet out of swich: {}, port: {}, isBDDP: {}", 
+                    new object[] {HexString.toHexString(sw), Short.valueOf(port),
+                                    Boolean.valueOf(isStandard)});
         // Takes care of all checks including null pointer checks.
         // checks whether the swport is suppressed or not
         // checks if the port is up and non auto fast
@@ -1069,6 +1071,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                                           return Command.CONTINUE;
             return handleLldp((LLDP) bsn.getPayload(), sw, pi, false, cntx);
         } else if (eth.getEtherType() == Ethernet.TYPE_LLDP) {
+            log.trace("Handling LLDP packet");
             //System.out.println("handling lldp packet");
             return handleLldp((LLDP) eth.getPayload(), sw, pi, true, cntx);
         } else if (eth.getEtherType() < 1500) {
@@ -1087,6 +1090,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         NodePortTuple npt = new NodePortTuple(sw, pi.getInPort());
         if (quarantineQueue.contains(npt)) return Command.STOP;
 
+        log.trace("Not a LLDP packet");
         return Command.CONTINUE;
     }
 
