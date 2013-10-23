@@ -493,13 +493,6 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                                        dstDap.getSwitchDPID(),
                                                        (short)dstDap.getPort(), 0); //cookie = 0, i.e., default route
                         if (route != null) {
-                            if (log.isTraceEnabled()) {
-                                log.trace("pushCircuit match={} route={} " + 
-                                          "destination={}:{}",
-                                          new Object[] {matchList.get(0), route, 
-                                                        dstDap.getSwitchDPID(),
-                                                        dstDap.getPort()});
-                            }
                             long srcDpid = srcDap.getSwitchDPID();
                             long dstDpid = dstDap.getSwitchDPID();
 
@@ -507,32 +500,49 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                 srcSwOutport = pushRoute(route, pi, sw.getId(), wildcard_hints,
                                                             cookie, cntx, requestFlowRemovedNotifn,
                                                             false, OFFlowMod.OFPFC_ADD);
+                                if (log.isTraceEnabled()) {
+                                    log.trace("pushCircuit route={} " +
+                                              "destination={}:{}",
+                                              new Object[] {route,
+                                                            dstDap.getSwitchDPID(),
+                                                            dstDap.getPort()});
+                                }
+
                                 if (srcSwOutport != null) 
                                     pinSwitchFound = true;   
-                                continue;
-                            } 
+                                //continue;
+                            } else { 
 
-                            rwHeaders = new LinkedList<byte[]>();
-                            matchList = getMatchList(pi, dstDap.getSwitchDPID(), 
-                                                     srcDap.getSwitchDPID(), 
-                                                     rwHeaders);
-                            wildCards_List = new LinkedList<Integer>();
+                                rwHeaders = new LinkedList<byte[]>();
+                                matchList = getMatchList(pi, dstDap.getSwitchDPID(), 
+                                                        srcDap.getSwitchDPID(), 
+                                                        rwHeaders);
+                                if (log.isTraceEnabled()) {
+                                    log.trace("pushCircuit match={} route={} " +
+                                              "destination={}:{}",
+                                              new Object[] {matchList.get(0), route,
+                                                            dstDap.getSwitchDPID(),
+                                                            dstDap.getPort()});
+                                }
 
-                            wildCards_List.addFirst(wildcard_hints);
-                            // match only the pathID except at the source switch
-                            wildcard_hints = new Integer(wildcard_hints);
-                            wildcard_hints = wildcard_hints.intValue() | OFMatch.OFPFW_DL_VLAN
-                                             | OFMatch.OFPFW_NW_SRC_MASK
-                                             | OFMatch.OFPFW_NW_DST_MASK;
-                            wildCards_List.addFirst(wildcard_hints);
-                            srcSwOutport = pushCircuit(route, matchList, wildCards_List, sw.getId(),
-                                                        pi, cookie, cntx, requestFlowRemovedNotifn,
-                                                        false, OFFlowMod.OFPFC_ADD, rwHeaders);
-                            if (srcSwOutport != null)
-                                pinSwitchRWHeaders = rwHeaders;
-                                pinSwitchFound = true;
+                                wildCards_List = new LinkedList<Integer>();
+
+                                wildCards_List.addFirst(wildcard_hints);
+                                // match only the pathID except at the source switch
+                                wildcard_hints = new Integer(wildcard_hints);
+                                wildcard_hints = wildcard_hints.intValue() | OFMatch.OFPFW_DL_VLAN
+                                                            | OFMatch.OFPFW_NW_SRC_MASK
+                                                            | OFMatch.OFPFW_NW_DST_MASK;
+                                wildCards_List.addFirst(wildcard_hints);
+                                srcSwOutport = pushCircuit(route, matchList, wildCards_List, sw.getId(),
+                                                            pi, cookie, cntx, requestFlowRemovedNotifn,
+                                                            false, OFFlowMod.OFPFC_ADD, rwHeaders);
+                                if (srcSwOutport != null) {
+                                    pinSwitchRWHeaders = rwHeaders;
+                                    pinSwitchFound = true;
+                                }
+                            }
                         }
-                    }
                     iSrcDaps++;
                     iDstDaps++;
                 } else if (srcVsDest < 0) {
