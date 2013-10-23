@@ -207,20 +207,20 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
     }
 
     @Override
-        public void init(FloodlightModuleContext context) throws FloodlightModuleException
-        {
-            floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
-            restAPIService = context.getServiceImpl(IRestApiService.class);
-            logger = LoggerFactory.getLogger(VoldemortClientImpl.class);
+     public void init(FloodlightModuleContext context) throws FloodlightModuleException
+     {
+     	floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
+        restAPIService = context.getServiceImpl(IRestApiService.class);
+        logger = LoggerFactory.getLogger(VoldemortClientImpl.class);
 
-            bootStrapClients(); 
-        }
+        bootStrapClients(); 
+     }
 
     @Override
-        public void startUp(FloodlightModuleContext context)
-        {
+     public void startUp(FloodlightModuleContext context)
+     {
             logger.info("\n ****Voldemort has started looking for Harry Potter!***\n");
-        }
+     }
 
     /*******************************
       IKeyValueStoreImplementation

@@ -282,6 +282,7 @@ public abstract class OFSwitchBase implements IOFSwitch {
                 /* ports are updated via port status message, so we
                  * only fill in ports on initial connection.
                  */
+                
                 for (OFPhysicalPort port : featuresReply.getPorts()) {
                     node.setPortId(port.getPortNumber());
                     port.setFlowspace(flowspace.get(node));
