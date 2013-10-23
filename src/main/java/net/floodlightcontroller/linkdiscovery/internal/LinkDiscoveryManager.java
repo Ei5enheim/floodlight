@@ -397,7 +397,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         @Override
         public void run() {
             try {
-                //processBDDPLists();
+                processBDDPLists();
             } catch (Exception e) {
                 log.error("Error in quarantine worker thread", e);
             } finally {
@@ -648,7 +648,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                       boolean isStandard, boolean isReverse) {
 
         log.trace("Trying to send LLDP packet out of swich: {}, port: {}, isBDDP: {}", 
-                    new object[] {HexString.toHexString(sw), Short.valueOf(port),
+                    new Object[] {HexString.toHexString(sw), Short.valueOf(port),
                                     Boolean.valueOf(isStandard)});
         // Takes care of all checks including null pointer checks.
         // checks whether the swport is suppressed or not
@@ -890,7 +890,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         if (lldp.getPortId() == null || lldp.getPortId().getLength() != 3) {
             return Command.CONTINUE;
         }
-        //System.out.println("past the port ID check");
+        System.out.println("past the port ID check");
         long myId = ByteBuffer.wrap(controllerTLV.getValue()).getLong();
         long otherId = 0;
         boolean myLLDP = false;
@@ -1060,7 +1060,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                                               IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-        //System.out.println("Ethertype of the received packet is "+Integer.toHexString(eth.getEtherType()));
+        log.trace("Ethertype of the received packet is {}", Integer.toHexString(eth.getEtherType()));
         if (eth.getEtherType() == Ethernet.TYPE_BSN) {
             BSN bsn = (BSN) eth.getPayload();
             if (bsn == null) return Command.STOP;
@@ -1069,9 +1069,10 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             // continue with the regular processing.
             if (bsn.getPayload() instanceof LLDP == false)
                                                           return Command.CONTINUE;
+	    log.trace("found a BDDP");
             return handleLldp((LLDP) bsn.getPayload(), sw, pi, false, cntx);
         } else if (eth.getEtherType() == Ethernet.TYPE_LLDP) {
-            log.trace("Handling LLDP packet");
+            log.trace("Handling LLDP packet{}", eth);
             //System.out.println("handling lldp packet");
             return handleLldp((LLDP) eth.getPayload(), sw, pi, true, cntx);
         } else if (eth.getEtherType() < 1500) {
@@ -1086,11 +1087,12 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             }
         }
 
+	log.trace("Not a LLDP");
         // If packet-in is from a quarantine port, stop processing.
         NodePortTuple npt = new NodePortTuple(sw, pi.getInPort());
         if (quarantineQueue.contains(npt)) return Command.STOP;
 
-        log.trace("Not a LLDP packet");
+        log.trace("Not a quarantine Queue port");
         return Command.CONTINUE;
     }
 
@@ -2281,12 +2283,12 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             log.trace("Setup: Not scheduling LLDP as role = {}.", role);
         }
 
-        /*
+        
         // Setup the BDDP task. It is invoked whenever switch port tuples
         // are added to the quarantine list.
         bddpTask = new SingletonTask(ses, new QuarantineWorker());
         bddpTask.reschedule(BDDP_TASK_INTERVAL, TimeUnit.MILLISECONDS);
-        */
+        
         updatesThread = new Thread(new Runnable() {
             @Override
             public void run() {
