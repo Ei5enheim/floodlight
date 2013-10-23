@@ -222,13 +222,13 @@ public interface IFloodlightProviderService extends
     */
    public void addOFSwitchDriver(String desc, IOFSwitchDriver driver);
 
-   public void addFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace);
+   public void addFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace);
 
    public void addNodePortFlowspace (NodePortTuple node, IOFFlowspace[] portFlowspace);
 
    public void removeFlowspace ();
  
-   public void addRuleTransTables (ConcurrentMap<Link, Rules> ruleTransTables);
+   public void addRuleTransTables (Map<Link, Rules> ruleTransTables);
 
    public void removeRuleTransTables ();
 

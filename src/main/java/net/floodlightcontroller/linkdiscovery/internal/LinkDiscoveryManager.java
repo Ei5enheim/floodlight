@@ -374,7 +374,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     {
 
         // Ignore for now
-        /*
+        
         // timeout known links.
         timeoutLinks();
 
@@ -384,7 +384,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         if (lldpClock == 0) {
             log.debug("Sending LLDP out on all ports.");
             discoverOnAllPorts();
-        }*/
+        }
     }
 
     /**
@@ -394,7 +394,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         @Override
         public void run() {
             try {
-                //processBDDPLists();
+                processBDDPLists();
             } catch (Exception e) {
                 log.error("Error in quarantine worker thread", e);
             } finally {
@@ -459,8 +459,10 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         while (count < BDDP_TASK_SIZE && quarantineQueue.peek() != null) {
             NodePortTuple npt;
             npt = quarantineQueue.remove();
-            sendDiscoveryMessage(npt.getNodeId(), npt.getPortId(), false,
+            // UNCOMMENT when LLDP is enabled
+            /*sendDiscoveryMessage(npt.getNodeId(), npt.getPortId(), false,
                                  false);
+            */
             nptList.add(npt);
             count++;
         }
@@ -469,8 +471,11 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         while (count < BDDP_TASK_SIZE && maintenanceQueue.peek() != null) {
             NodePortTuple npt;
             npt = maintenanceQueue.remove();
+            // UNCOMMENT when LLDP is enabled
+            /*
             sendDiscoveryMessage(npt.getNodeId(), npt.getPortId(), false,
                                  false);
+            */
             count++;
         }
 
@@ -1083,6 +1088,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         NodePortTuple npt = new NodePortTuple(sw, pi.getInPort());
         if (quarantineQueue.contains(npt)) return Command.STOP;
 
+        log.trace("Port not in quarantine queue");
         return Command.CONTINUE;
     }
 
@@ -1606,7 +1612,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             return;
         }
         NodePortTuple npt = new NodePortTuple(sw, p);
-        discover(sw, p);
+        //UNCOMMENT
+        //discover(sw, p);
         // if it is not a fast port, add it to quarantine.
         if (!iofSwitch.isFastPort(p)) {
             addToQuarantineQueue(npt);
@@ -1628,7 +1635,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         if (sw.getEnabledPortNumbers() != null) {
             for (Short p : sw.getEnabledPortNumbers()) {
-                //processNewPort(sw.getId(), p);
+                processNewPort(sw.getId(), p);
             }
         }
         // Update event history
@@ -1983,9 +1990,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
      * 
      * @param linkDiscoveryAwareComponent
      */
-    public
-            void
-            addLinkDiscoveryAware(ILinkDiscoveryListener linkDiscoveryAwareComponent) {
+    public void addLinkDiscoveryAware(
+                        ILinkDiscoveryListener linkDiscoveryAwareComponent) {
         // TODO make this a copy on write set or lock it somehow
         this.linkDiscoveryAware.add(linkDiscoveryAwareComponent);
     }
@@ -2226,14 +2232,15 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
 
         // Need to uncomment this part when LLDP is needed.
-        /*
+        
         // To be started by the first switch connection
         discoveryTask = new SingletonTask(ses, new Runnable() {
             @Override
             public void run() {
                 try {
+                    // UNCOMMENT
                     //if (topoVerified)
-                        discoverLinks();
+                        //discoverLinks();
                 } catch (StorageException e) {
                     log.error("Storage exception in LLDP send timer; "
                               + "terminating process", e);
@@ -2256,7 +2263,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                 }
             }
         });
-        */
+        
 
         // null role implies HA mode is not enabled.
         Role role = floodlightProvider.getRole();
@@ -2268,12 +2275,12 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             log.trace("Setup: Not scheduling LLDP as role = {}.", role);
         }
 
-        /*
+        
         // Setup the BDDP task. It is invoked whenever switch port tuples
         // are added to the quarantine list.
         bddpTask = new SingletonTask(ses, new QuarantineWorker());
         bddpTask.reschedule(BDDP_TASK_INTERVAL, TimeUnit.MILLISECONDS);
-        */
+        
         updatesThread = new Thread(new Runnable() {
             @Override
             public void run() {

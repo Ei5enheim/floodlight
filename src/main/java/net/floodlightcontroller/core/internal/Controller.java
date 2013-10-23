@@ -226,12 +226,12 @@ public class Controller implements IFloodlightProviderService,
         Boolean.parseBoolean(System.getProperty("overload_drop", "false"));
     protected final LoadMonitor loadmonitor = new LoadMonitor(log);
 
-    protected ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace;
+    protected Map<NodePortTuple, IOFFlowspace[]> flowspace;
 
     /* Map from link to Translation table for
      * non Physically connected links
      */
-    protected ConcurrentMap<Link, Rules> ruleTransTables;
+    protected Map<Link, Rules> ruleTransTables;
 
     /* A flag to ensure if switches connected to the controller 
      * before delegations are ready
@@ -240,7 +240,6 @@ public class Controller implements IFloodlightProviderService,
 
     /* Map to keep track of the ports that are to be linked with
      * their respective flowspaces
-     * protected ConcurrentMap<OFPhysicalPort, Object> ports2BUpdated;
      */
 
     protected Map<Long, String> domainMapper; 
@@ -1106,7 +1105,7 @@ public class Controller implements IFloodlightProviderService,
         NodePortTuple node = new NodePortTuple(sw.getId(), portNumber);
         OFPhysicalPort port = m.getDesc();
 
-        if (flowspace == null)
+        if (flowspace == null || flowspace.get(node) == null)
             ports2BUpdated = true;
         else 
             port.setFlowspace(flowspace.get(node));
@@ -1443,7 +1442,7 @@ public class Controller implements IFloodlightProviderService,
 
     // Internal Utility methods
     // need to modify these to merge two flowspaces
-    public void addFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+    public void addFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace)
     {
         this.flowspace = flowspace;
 
@@ -1469,7 +1468,7 @@ public class Controller implements IFloodlightProviderService,
         this.flowspace = null;
     }
 
-    public void addRuleTransTables (ConcurrentMap<Link, Rules> ruleTransTables)
+    public void addRuleTransTables (Map<Link, Rules> ruleTransTables)
     {
         this.ruleTransTables = ruleTransTables;
     }
@@ -1883,7 +1882,6 @@ public class Controller implements IFloodlightProviderService,
         initVendorMessages();
         this.systemStartTime = System.currentTimeMillis();
         //this.flowspace = new ConcurrentHashMap<NodePortTuple, IOFFlowspace[]>();
-		//this.ports2BUpdated = new ConcurrentHashMap<OFPhysicalPort, Object> ();
     }
 
     /**

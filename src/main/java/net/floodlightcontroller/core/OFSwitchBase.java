@@ -272,7 +272,7 @@ public abstract class OFSwitchBase implements IOFSwitch {
 
     @Override
     public void setFeaturesReply (OFFeaturesReply featuresReply,
-                                 ConcurrentMap <NodePortTuple, IOFFlowspace[]> flowspace)
+                                 Map <NodePortTuple, IOFFlowspace[]> flowspace)
     {
         NodePortTuple node = null;
         synchronized(portLock) {
@@ -693,7 +693,7 @@ public abstract class OFSwitchBase implements IOFSwitch {
         floodlightProvider = controller;
     }
 
-    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+    public void setPortsFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace)
 	{
 		NodePortTuple switchPort = new NodePortTuple(this.datapathId, 0);
 		for (OFPhysicalPort port: portsByNumber.values()) {

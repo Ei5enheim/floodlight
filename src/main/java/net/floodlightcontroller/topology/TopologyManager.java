@@ -925,9 +925,9 @@ public class TopologyManager implements
             // continue with the regular processing.
             if (bsn.getPayload() instanceof LLDP == false)
                 return Command.CONTINUE;
-            
+            //UNCOMMENT
             // only the case when we reach here is when myid < remote controller's ID
-            doFloodBDDP(sw.getId(), pi, cntx);
+            //doFloodBDDP(sw.getId(), pi, cntx);
         } else {
             return dropFilter(sw.getId(), pi, cntx);
         }

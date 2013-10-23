@@ -159,7 +159,7 @@ public interface IOFSwitch {
     public void setFeaturesReply(OFFeaturesReply featuresReply);
 
     public void setFeaturesReply(OFFeaturesReply featuresReply,
-				 ConcurrentMap <NodePortTuple, IOFFlowspace[]> flowspace);
+				 Map <NodePortTuple, IOFFlowspace[]> flowspace);
     
     /**
      * Get list of all enabled ports. This will typically be different from
@@ -503,6 +503,6 @@ public interface IOFSwitch {
 
     //public void getDomainId (Object id);
 
-    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace);
+    public void setPortsFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace);
 
 }

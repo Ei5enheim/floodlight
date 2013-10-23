@@ -261,6 +261,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     {
         if (!completeFlowspace) {
             synchronized (lock) {
+				// Need to add code for the case when we have overlapping requests
                 if (!lock.getTaskStatus()) {
                     lock.updateTotalCnt(links.size());
                     lock.taskInProgress();
