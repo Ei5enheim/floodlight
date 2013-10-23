@@ -543,6 +543,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                 }
                             }
                         }
+                    }
                     iSrcDaps++;
                     iDstDaps++;
                 } else if (srcVsDest < 0) {
