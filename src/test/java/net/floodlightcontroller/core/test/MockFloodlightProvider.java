@@ -200,7 +200,7 @@ public class MockFloodlightProvider implements IFloodlightModule, IFloodlightPro
     public void terminate() {
     }
 
-    public void addFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace) {
+    public void addFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace) {
 
     }    
 

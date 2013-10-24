@@ -83,7 +83,7 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
     }
 
     public void setFeaturesReply(OFFeaturesReply featuresReply,
-                 ConcurrentMap <NodePortTuple, IOFFlowspace[]> flowspace)
+                                Map <NodePortTuple, IOFFlowspace[]> flowspace)
     {
 
     }
