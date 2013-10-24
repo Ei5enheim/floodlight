@@ -43,6 +43,7 @@ import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.math.BigInteger;
 
 import com.tinkerpop.blueprints.Graph;
 import com.tinkerpop.blueprints.impls.dex.DexGraph;
@@ -192,11 +193,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         isPhysEdge = e.getLabel().equals(wantedLabel);
 
-        headDpid = Long.valueOf((String)inNode.getProperty("DPID"));
+        //headDpid = Long.valueOf((String)inNode.getProperty("DPID"));
+        headDpid = new BigInteger((String)inNode.getProperty("DPID"), 16).longValue();
         headSwitchPort = new NodePortTuple(headDpid,
                                     Short.valueOf((String)inNode.getProperty("Port")));
 
-        tailDpid = Long.valueOf((String)outNode.getProperty("DPID"));
+        //tailDpid = Long.valueOf((String)outNode.getProperty("DPID"));
+        tailDpid = new BigInteger((String)outNode.getProperty("DPID"),16).longValue();
         tailSwitchPort = new NodePortTuple(tailDpid,
                                     Short.valueOf((String)outNode.getProperty("Port")));
 
