@@ -4,7 +4,7 @@
  *
  */
 
-package net.floodlightcontroller.graphdbreader;
+package net.floodlightcontroller.graphdbreader.internal;
 
 import net.floodlightcontroller.graphdbreader.IGraphDBReaderService;
 import net.floodlightcontroller.core.module.IFloodlightModule;
