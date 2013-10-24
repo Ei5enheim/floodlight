@@ -214,7 +214,7 @@ public class MockFloodlightProvider implements IFloodlightModule, IFloodlightPro
 
     }
  
-    public void addRuleTransTables (ConcurrentMap<Link, Rules> ruleTransTables)
+    public void addRuleTransTables (Map<Link, Rules> ruleTransTables)
     {
 
     }

@@ -429,7 +429,7 @@ public class OFMessageDamperMockSwitch implements IOFSwitch {
         return false;
     }
 
-    public void setPortsFlowspace (ConcurrentMap<NodePortTuple, IOFFlowspace[]> flowspace)
+    public void setPortsFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace)
     {
 
     }
