@@ -85,6 +85,7 @@
 	<include name="json-lib-2.4-jdk15.jar" />
 	<include name="commons-lang-2.4.jar" />
 	<include name="commons-logging-1.1.1.jar" />
+        <include name="ezmorph-1.0.6.jar" />
     </patternset>
 
     <path id="classpath">
