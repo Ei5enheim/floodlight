@@ -161,7 +161,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         //Invoke the topovalidator here using the topolock here.
         // Need to deal with the combination part and leaving out the
         // single node from a seperate domain and the lock part.
-        linkManager.addLinks((Link[]) links.toArray());
+        Link[] topoLinks = new Link[links.size()];
+        topoLinks = links.toArray(topoLinks);
+        linkManager.addLinks(topoLinks);
         //linkManager.enableLinkDiscovery();
 
     }
