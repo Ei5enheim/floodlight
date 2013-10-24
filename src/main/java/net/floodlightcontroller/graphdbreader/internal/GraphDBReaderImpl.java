@@ -96,6 +96,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
     public void startUp(FloodlightModuleContext context)
     {
+        readGraph();
         logger.info("\n ****Starting the Graphdb reader module****\n");
     }
 
