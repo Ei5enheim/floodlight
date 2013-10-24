@@ -112,7 +112,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         try {
             stream = new BufferedInputStream(
-                                        new FileInputStream("doe_pharos_domain_A.xml"));
+                                        new FileInputStream("graph/doe_pharos_domain_A.xml"));
         } catch (FileNotFoundException fnf) {
     
         }
@@ -130,7 +130,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         try {
             GraphMLReader.inputGraph(graph, stream);
         } catch (IOException io) {
-
+           logger.trace("caught an exception"); 
         }
         for (Edge e: graph.getEdges()) {
             try {
