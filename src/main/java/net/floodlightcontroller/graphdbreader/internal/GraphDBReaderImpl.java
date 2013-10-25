@@ -10,9 +10,6 @@ import net.floodlightcontroller.graphdbreader.IGraphDBReaderService;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.module.IFloodlightService;
-import net.floodlightcontroller.core.FloodlightContext;
-import net.floodlightcontroller.core.module.FloodlightModuleContext;
-import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.topovalidation.ITopoValidationService;
 import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.core.FloodlightContext;
@@ -23,6 +20,7 @@ import net.floodlightcontroller.topology.OFFlowspace;
 import net.floodlightcontroller.topology.FlowspaceException;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.routing.Link;
+import net.floodlightcontroller.core.IOFGraphDBReader;
 
 import org.renci.doe.pharos.flow.Rules;
 import org.renci.doe.pharos.flow.Rule;
@@ -64,14 +62,20 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     // IFloodlightModule routines
     public Collection<Class<? extends IFloodlightService>> getModuleServices()
     {
-        return null;
+        Collection <Class<? extends IFloodlightService>> list =
+                            new ArrayList<Class<? extends IFloodlightService>>();
+        list.add(IGraphDBReaderService.class);
+        return (list);
     }
 
     public Map<Class<? extends IFloodlightService>,
                IFloodlightService> getServiceImpls()
-
     {
-        return null;
+        Map <Class<? extends IFloodlightService>, IFloodlightService> map =
+                            new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
+
+        map.put(IGraphDBReaderService.class, this);
+        return (map);
     }
 
     public Collection<Class<? extends IFloodlightService>> getModuleDependencies()
@@ -91,7 +95,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         logger = LoggerFactory.getLogger(GraphDBReaderImpl.class);
         linkManager = context.getServiceImpl(ILinkDiscoveryService.class);
         topoValidator = context.getServiceImpl(ITopoValidationService.class);
-
     }
 
     public void startUp(FloodlightModuleContext context)
@@ -158,14 +161,14 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         floodlightProvider.addRuleTransTables(ruleTransTables);
         floodlightProvider.addDomainMapper(domainMapper);
         floodlightProvider.addSwitches(switches);
-        //UNCOMMENT need to reconsider this
+        /*UNCOMMENT need to reconsider this
         try {
             synchronized(switches) {
                 switches.wait();
             }
         } catch (InterruptedException ie) {
            logger.trace("***********caught an InterruptedException ***********"); 
-        }
+        }*/
         topoValidator.validateTopology(links, ruleTransTables, false);
         //Invoke the topovalidator here using the topolock here.
         // Need to deal with the combination part and leaving out the
@@ -276,6 +279,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 System.out.println("[Ingress] Flowspace: " + outNode.getProperty("Flowspace"));
             }
         }
+    }
+
+    // IOFGraphDBReader
+
+    public void startPartsing()
+    {
+        readGraph();
     }
 
     protected IFloodlightProviderService floodlightProvider;

@@ -48,6 +48,7 @@ import net.floodlightcontroller.core.IHAListener;
 import net.floodlightcontroller.core.IInfoProvider;
 import net.floodlightcontroller.core.IListener.Command;
 import net.floodlightcontroller.core.IOFMessageListener;
+import net.floodlightcontroller.core.IOFGraphDBReader;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.IOFSwitchDriver;
 import net.floodlightcontroller.core.IOFSwitchFilter;
@@ -254,6 +255,8 @@ public class Controller implements IFloodlightProviderService,
     protected Set<Long> proActiveSwitches;
 
     protected Object lock;
+
+    protected List<IOFGraphDBReader> graphDBReaders;
 
     /**
      *  Updates handled by the main loop
@@ -801,6 +804,7 @@ public class Controller implements IFloodlightProviderService,
                     swList.add(sw);
                     roleChanger.submitRequest(swList, role);
                 }
+                /*
                 synchronized (lock) {
                     if (switches == null) {
                         if (proActiveSwitches == null)
@@ -811,11 +815,11 @@ public class Controller implements IFloodlightProviderService,
                             switches.remove(sw.getId());
                             if (switches.isEmpty()) {
                                 switches.notify();
-                                switches = null;
                             }
                         }
+                        //need to set switches to null in a seperate call
                     }
-                }   
+                }*/  
             }
         }
 
@@ -1532,9 +1536,18 @@ public class Controller implements IFloodlightProviderService,
     {
 	return (domainMapper.get(dpid));
     }
+
+
     // ***************
     // IFloodlightProvider
     // ***************
+
+    public synchronized void addOFGraphDBReader(IOFGraphDBReader graphDBReader) {
+        if (graphDBReaders == null) {
+            graphDBReaders = new ArrayList<IOFGraphDBReader>();        
+        }
+        graphDBReaders.add(graphDBReader);
+    }
 
     @Override
     public synchronized void addOFMessageListener(OFType type,
@@ -1909,6 +1922,7 @@ public class Controller implements IFloodlightProviderService,
         this.initVendorMessages();
         this.systemStartTime = System.currentTimeMillis();
         this.lock = new Object();
+        //this.graphDBReader = 
         //this.flowspace = new ConcurrentHashMap<NodePortTuple, IOFFlowspace[]>();
     }
 
@@ -2134,7 +2148,6 @@ public class Controller implements IFloodlightProviderService,
             if (switches.isEmpty()) {
                 synchronized(switches) {
                     switches.notify();
-                    switches = null;
                 }
             } else {
                 this.switches = switches;
