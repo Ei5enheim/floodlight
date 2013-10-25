@@ -1126,6 +1126,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         dstNpt = new NodePortTuple(lt.getDst(), lt.getDstPort());
 	try {
             lock.writeLock().lock();
+			LinkInfo oldInfo = this.links.put(lt, info);
             // index it by switch source
             if (!switchLinks.containsKey(lt.getSrc()))
                 switchLinks.put(lt.getSrc(), new HashSet<Link>());
@@ -1179,6 +1180,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
     public void addLinks (Link[] links)
     {
+        log.trace("***********Adding links************");
         NodePortTuple srcNpt, dstNpt;
         UpdateOperation updateOperation = null;
         LinkInfo info = new LinkInfo (System.currentTimeMillis(),
@@ -1189,6 +1191,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 	try {
             lock.writeLock().lock();
             for (Link lt: links) {
+				LinkInfo oldInfo = this.links.put(lt, info);
                 srcNpt = new NodePortTuple(lt.getSrc(), lt.getSrcPort());
                 dstNpt = new NodePortTuple(lt.getDst(), lt.getDstPort());
 
