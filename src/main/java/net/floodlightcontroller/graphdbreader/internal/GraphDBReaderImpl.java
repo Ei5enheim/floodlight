@@ -160,7 +160,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         floodlightProvider.addSwitches(switches);
         //UNCOMMENT need to reconsider this
         try {
-            switches.wait();
+            synchronized(switches) {
+                switches.wait();
+            }
         } catch (InterruptedException ie) {
            logger.trace("***********caught an InterruptedException ***********"); 
         }

@@ -807,10 +807,12 @@ public class Controller implements IFloodlightProviderService,
                             proActiveSwitches = new HashSet<Long>();
                         proActiveSwitches.add(sw.getId());
                     } else {
-                        switches.remove(sw.getId());
-                        if (switches.isEmpty()) {
-                            switches.notify();
-                            switches = null;
+                        synchronized(switches) {
+                            switches.remove(sw.getId());
+                            if (switches.isEmpty()) {
+                                switches.notify();
+                                switches = null;
+                            }
                         }
                     }
                 }   
@@ -2122,13 +2124,18 @@ public class Controller implements IFloodlightProviderService,
     public void addSwitches (Set<Long> switches)
     {
         synchronized(lock) {
-            if (proActiveSwitches != null)
-                switches.removeAll(proActiveSwitches);
+            if (proActiveSwitches != null) {
+                synchronized(switches) {
+                    switches.removeAll(proActiveSwitches);
+                }
+            }
            
             proActiveSwitches = null; 
             if (switches.isEmpty()) {
-                switches.notify();
-                switches = null;
+                synchronized(switches) {
+                    switches.notify();
+                    switches = null;
+                }
             } else {
                 this.switches = switches;
             }
