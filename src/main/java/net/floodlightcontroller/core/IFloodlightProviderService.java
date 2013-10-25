@@ -19,6 +19,7 @@ package net.floodlightcontroller.core;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import org.renci.doe.pharos.flow.Rules;
@@ -186,59 +187,61 @@ public interface IFloodlightProviderService extends
      */
     public void addInfoProvider(String type, IInfoProvider provider);
 
-   /**
-    * Remove an info provider of a particular type
-    * @param type
-    * @param provider
-    */
-   public void removeInfoProvider(String type, IInfoProvider provider);
-   
-   /**
-    * Return information of a particular type (for rest services)
-    * @param type
-    * @return
-    */
-   public Map<String, Object> getControllerInfo(String type);
-   
-   
-   /**
-    * Return the controller start time in  milliseconds
-    * @return
-    */
-   public long getSystemStartTime();
-   
-   /**
-    * Configure controller to always clear the flow table on the switch,
-    * when it connects to controller. This will be true for first time switch
-    * reconnect, as well as a switch re-attaching to Controller after HA
-    * switch over to ACTIVE role
-    */
-   public void setAlwaysClearFlowsOnSwAdd(boolean value);
-   
-   /**
-    * Adds an OFSwitch driver
-    * @param desc The starting portion of switch's manufacturer string
-    * @param driver The object implementing OFSwitchDriver interface
-    */
-   public void addOFSwitchDriver(String desc, IOFSwitchDriver driver);
+    /**
+     * Remove an info provider of a particular type
+     * @param type
+     * @param provider
+     */
+    public void removeInfoProvider(String type, IInfoProvider provider);
 
-   public void addFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace);
+    /**
+     * Return information of a particular type (for rest services)
+     * @param type
+     * @return
+     */
+    public Map<String, Object> getControllerInfo(String type);
 
-   public void addNodePortFlowspace (NodePortTuple node, IOFFlowspace[] portFlowspace);
 
-   public void removeFlowspace ();
- 
-   public void addRuleTransTables (Map<Link, Rules> ruleTransTables);
+    /**
+     * Return the controller start time in  milliseconds
+     * @return
+     */
+    public long getSystemStartTime();
 
-   public void removeRuleTransTables ();
+    /**
+     * Configure controller to always clear the flow table on the switch,
+     * when it connects to controller. This will be true for first time switch
+     * reconnect, as well as a switch re-attaching to Controller after HA
+     * switch over to ACTIVE role
+     */
+    public void setAlwaysClearFlowsOnSwAdd(boolean value);
 
-   public void addRuleTransTable (Link link, Rules table);
+    /**
+     * Adds an OFSwitch driver
+     * @param desc The starting portion of switch's manufacturer string
+     * @param driver The object implementing OFSwitchDriver interface
+     */
+    public void addOFSwitchDriver(String desc, IOFSwitchDriver driver);
 
-   public Rules getLinkRuleTransTable (Link link);
+    public void addFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace);
 
-   public void addDomainMapper (Map <Long, String> domainMapper);
- 
-   public void removeDomainMapper ();
+    public void addNodePortFlowspace (NodePortTuple node, IOFFlowspace[] portFlowspace);
 
-   public String getSwDomain (long dpid);
+    public void removeFlowspace ();
+
+    public void addRuleTransTables (Map<Link, Rules> ruleTransTables);
+
+    public void removeRuleTransTables ();
+
+    public void addRuleTransTable (Link link, Rules table);
+
+    public Rules getLinkRuleTransTable (Link link);
+
+    public void addDomainMapper (Map <Long, String> domainMapper);
+
+    public void removeDomainMapper ();
+
+    public String getSwDomain (long dpid);
+
+    public void addSwitches (Set<Long> switches);
 }

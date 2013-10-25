@@ -244,6 +244,17 @@ public class Controller implements IFloodlightProviderService,
 
     protected Map<Long, String> domainMapper; 
 
+    /*
+     * Datastructures to keep track of the switches that are yet 
+     * to initiate a connection to the controller.
+     */
+
+    protected Set<Long> switches;
+    
+    protected Set<Long> proActiveSwitches;
+
+    protected Object lock;
+
     /**
      *  Updates handled by the main loop
      */
@@ -253,6 +264,7 @@ public class Controller implements IFloodlightProviderService,
          */
         public void dispatch();
     }
+
     public enum SwitchUpdateType {
         ADDED,
         REMOVED,
@@ -789,6 +801,19 @@ public class Controller implements IFloodlightProviderService,
                     swList.add(sw);
                     roleChanger.submitRequest(swList, role);
                 }
+                synchronized (lock) {
+                    if (switches == null) {
+                        if (proActiveSwitches == null)
+                            proActiveSwitches = new HashSet<Long>();
+                        proActiveSwitches.add(sw.getId());
+                    } else {
+                        switches.remove(sw.getId());
+                        if (switches.isEmpty()) {
+                            switches.notify();
+                            switches = null;
+                        }
+                    }
+                }   
             }
         }
 
@@ -1875,12 +1900,13 @@ public class Controller implements IFloodlightProviderService,
         this.updates = new LinkedBlockingQueue<IUpdate>();
         this.factory = new BasicFactory();
         this.providerMap = new HashMap<String, List<IInfoProvider>>();
-        setConfigParams(configParams);
+        this.setConfigParams(configParams);
         this.role = getInitialRole(configParams);
         this.notifiedRole = this.role;
         this.roleChanger = new RoleChanger(this);
-        initVendorMessages();
+        this.initVendorMessages();
         this.systemStartTime = System.currentTimeMillis();
+        this.lock = new Object();
         //this.flowspace = new ConcurrentHashMap<NodePortTuple, IOFFlowspace[]>();
     }
 
@@ -2091,6 +2117,22 @@ public class Controller implements IFloodlightProviderService,
         if (index == -1) {  // append to list
             switchDescSortedList.add(description);
         }
+    }
+
+    public void addSwitches (Set<Long> switches)
+    {
+        synchronized(lock) {
+            if (proActiveSwitches != null)
+                switches.removeAll(proActiveSwitches);
+           
+            proActiveSwitches = null; 
+            if (switches.isEmpty()) {
+                switches.notify();
+                switches = null;
+            } else {
+                this.switches = switches;
+            }
+        } 
     }
 
 }

@@ -157,6 +157,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         floodlightProvider.addFlowspace(flowspace);
         floodlightProvider.addRuleTransTables(ruleTransTables);
         floodlightProvider.addDomainMapper(domainMapper);
+        floodlightProvider.addSwitches(switches);
+        //UNCOMMENT need to reconsider this
+        try {
+            switches.wait();
+        } catch (InterruptedException ie) {
+           logger.trace("***********caught an InterruptedException ***********"); 
+        }
         topoValidator.validateTopology(links, ruleTransTables, false);
         //Invoke the topovalidator here using the topolock here.
         // Need to deal with the combination part and leaving out the

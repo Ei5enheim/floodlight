@@ -117,7 +117,7 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
                                 new ArrayList<Class<? extends IFloodlightService>>();
         collection.add(IFloodlightProviderService.class);
         collection.add(IRestApiService.class);
-	return (collection);
+		return (collection);
     }
 
     /**

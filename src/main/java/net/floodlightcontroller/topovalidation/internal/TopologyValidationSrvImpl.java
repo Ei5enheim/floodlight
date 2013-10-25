@@ -719,6 +719,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
         IOFSwitch iofSwitch = floodlightProvider.getSwitches().get(sw);
         if (iofSwitch == null) {
+            log.trace("switch is null");
             return false;
         }
 
