@@ -243,5 +243,5 @@ public interface IFloodlightProviderService extends
 
     public String getSwDomain (long dpid);
 
-    public void addSwitches (Set<Long> switches);
+    public boolean allPresent (Set<Long> switches);
 }

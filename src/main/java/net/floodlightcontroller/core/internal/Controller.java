@@ -48,7 +48,6 @@ import net.floodlightcontroller.core.IHAListener;
 import net.floodlightcontroller.core.IInfoProvider;
 import net.floodlightcontroller.core.IListener.Command;
 import net.floodlightcontroller.core.IOFMessageListener;
-import net.floodlightcontroller.core.IOFGraphDBReader;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.IOFSwitchDriver;
 import net.floodlightcontroller.core.IOFSwitchFilter;
@@ -151,7 +150,7 @@ public class Controller implements IFloodlightProviderService,
     // The activeSwitches map contains only those switches that are actively
     // being controlled by us -- it doesn't contain switches that are
     // in the slave role. As part of delegation modification we are going to add 
-    // switch to this map when we read it from the graph
+    // switches to this map when we read it from the graph
     protected ConcurrentHashMap<Long, IOFSwitch> activeSwitches;
     // connectedSwitches contains all connected switches, including ones where
     // we're a slave controller. We need to keep track of them so that we can
@@ -245,18 +244,6 @@ public class Controller implements IFloodlightProviderService,
 
     protected Map<Long, String> domainMapper; 
 
-    /*
-     * Datastructures to keep track of the switches that are yet 
-     * to initiate a connection to the controller.
-     */
-
-    protected Set<Long> switches;
-    
-    protected Set<Long> proActiveSwitches;
-
-    protected Object lock;
-
-    protected List<IOFGraphDBReader> graphDBReaders;
 
     /**
      *  Updates handled by the main loop
@@ -1542,13 +1529,6 @@ public class Controller implements IFloodlightProviderService,
     // IFloodlightProvider
     // ***************
 
-    public synchronized void addOFGraphDBReader(IOFGraphDBReader graphDBReader) {
-        if (graphDBReaders == null) {
-            graphDBReaders = new ArrayList<IOFGraphDBReader>();        
-        }
-        graphDBReaders.add(graphDBReader);
-    }
-
     @Override
     public synchronized void addOFMessageListener(OFType type,
                                                   IOFMessageListener listener) {
@@ -1921,9 +1901,6 @@ public class Controller implements IFloodlightProviderService,
         this.roleChanger = new RoleChanger(this);
         this.initVendorMessages();
         this.systemStartTime = System.currentTimeMillis();
-        this.lock = new Object();
-        //this.graphDBReader = 
-        //this.flowspace = new ConcurrentHashMap<NodePortTuple, IOFFlowspace[]>();
     }
 
     /**
@@ -2135,24 +2112,9 @@ public class Controller implements IFloodlightProviderService,
         }
     }
 
-    public void addSwitches (Set<Long> switches)
+    public boolean allPresent (Set<Long> switches)
     {
-        synchronized(lock) {
-            if (proActiveSwitches != null) {
-                synchronized(switches) {
-                    switches.removeAll(proActiveSwitches);
-                }
-            }
-           
-            proActiveSwitches = null; 
-            if (switches.isEmpty()) {
-                synchronized(switches) {
-                    switches.notify();
-                }
-            } else {
-                this.switches = switches;
-            }
-        } 
+		return (activeSwitches.values().containsAll(switches));
     }
 
 }

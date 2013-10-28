@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.EnumSet;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -52,9 +53,11 @@ import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.topovalidation.ITopoValidationService;
+import net.floodlightcontroller.topovalidation.internal.NodePortTuplePlusPkt;
 import net.floodlightcontroller.counter.ICounterStoreService;
 import net.floodlightcontroller.topovalidation.internal.TopoLock;
 import net.floodlightcontroller.devicemanager.SwitchPort;
+import net.floodlightcontroller.packet.IPacket;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.UDP;
 import net.floodlightcontroller.packet.ICMP;
@@ -74,7 +77,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 {
     protected static Logger log = LoggerFactory.getLogger(TopologyValidationSrvImpl.class);
     protected IFloodlightProviderService floodlightProvider;
-    protected TopoLock lock;
+    protected ConcurrentHashMap<NodePortTuplePlusPkt, TopoLock> map;
     protected ScheduledExecutorService ses;
     protected ILinkDiscoveryService linkInfo;
     protected OFMessageDamper messageDamper;
@@ -159,11 +162,11 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         this.floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
         this.threadPool = context.getServiceImpl(IThreadPoolService.class);
         this.linkInfo = context.getServiceImpl(ILinkDiscoveryService.class);
-        messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
+        this.messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
                                             EnumSet.of(OFType.PACKET_OUT),
                                             OFMESSAGE_DAMPER_TIMEOUT);
         this.counterStore = context.getServiceImpl(ICounterStoreService.class);
-        lock = new TopoLock();
+        this.map = new ConcurrentHashMap<NodePortTuplePlusPkt, TopoLock> ();
     }
 
     @Override
@@ -179,13 +182,28 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     {
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                     IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        // check for the ARP request packet
+        /* check for the ARP request packet
         if ((Arrays.equals(eth.getDestinationMACAddress(),
                           STANDARD_DST_MAC_STRING)) &&
             (Arrays.equals(eth.getSourceMACAddress(),
                             STANDARD_DST_MAC_STRING))) {
             //need to increment the counter here.
-            lock.incrVerifiedCnt();
+            return Command.STOP;
+        }*/
+        OFPacketIn pktIn = (OFPacketIn) msg;
+        NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(sw.getId(),
+                                                                        pktIn.getInPort()),
+                                                                eth);
+                                                                            
+        if (map.containsKey(key)) {
+            TopoLock lock = map.remove(key);
+            if (lock != null) {
+                lock.incrVerifiedCnt();
+                if (lock.checkValidationStatus()) {
+                    lock.taskComplete();
+                    lock.notifyAll();
+                }
+            }
             return Command.STOP;
         }
         return Command.CONTINUE;
@@ -193,9 +211,11 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
     // Internal utility methods
     private boolean validateLink (Link link,
-                                 Rules ruleTransTable)
+                                    Rules ruleTransTable,
+                                    TopoLock lock)
     {
         OFPacketOut po = null;
+        IPacket pkt = null;
 
         if (log.isDebugEnabled()) {
             log.debug("Validating random flowspace on link {}--> {}",
@@ -223,16 +243,22 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         IOFFlowspace flowspace = srcSw.getPort(link.getSrcPort()).getEgressFlowspace();
 
         if (flowspace != null)
-            po = generatePacketOut(srcSw,
-                                    flowspace,
-                                    true);
+            pkt = getPacket(srcSw, flowspace, true);
         else
-            po = generateDefaultPacketOut(srcSw);
+            pkt = getDefaultPacket(srcSw);
 
-        if (!pushFlowMod(po, dstSw,
-                        ruleTransTable, link.getDstPort()))
+        if (pkt == null)
+            return false;
+
+        po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
+                                            .getMessage(OFType.PACKET_OUT);
+        po.setPacketData(pkt.serialize());
+
+        if (!pushFlowMod(po, dstSw, ruleTransTable, link.getDstPort()))
             return (false);
 
+        map.put(new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()),pkt),
+                                         lock);
         // May be we need to push a flowmod at the destination switch and with specific mac
         // or anyway we have to store the mapper packet for matching when we receive
         sendPacket (srcSw, link.getSrcPort(), po);
@@ -240,70 +266,75 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     }
 
     private boolean validatePath (List<NodePortTuple> path,
-                                 Map<Link, Rules> ruleTransTables)
+                                 Map<Link, Rules> ruleTransTables,
+                                    TopoLock lock)
     {
         return (true);
     }
 
     private boolean validateTopology (List<Link> links,
-                                     Map<Link, Rules> ruleTransTables)
+                                     Map<Link, Rules> ruleTransTables,
+                                        TopoLock lock)
     {
-        for (Link link: links)
-            if(!validateLink(link, ruleTransTables.get(link)))
+        for (Link link: links) {
+            if(!validateLink(link, ruleTransTables.get(link), lock))
                 return (false);
+        }
+        
         return (true);
     }
 
     // ITopoValidationService methods
-    public boolean validateTopology (List<Link> links,
+    public TopoLock validateTopology (List<Link> links,
                                      Map<Link, Rules> ruleTransTables,
                                      boolean completeFlowspace)
     {
+        TopoLock lock = new TopoLock();
+
         if (!completeFlowspace) {
-            synchronized (lock) {
-				// Need to add code for the case when we have overlapping requests
-                if (!lock.getTaskStatus()) {
-                    lock.updateTotalCnt(links.size());
-                    lock.taskInProgress();
-                }
-            }
-            if (!validateTopology (links, ruleTransTables)) {
+            if (!validateTopology (links, ruleTransTables, lock)) {
                 // Aborting the validation part and reseting the lock
-                synchronized (lock) {
-                    lock.reset();
+                synchronized (map) {
+                    map.values().remove(lock);
                 }
-                return (false);
+                return (null);
             }
         }
-        return (true);
+        return (lock);
     }
 
-    /*
-    public boolean validateTopology (List<NodePortTuple> switchPorts,
-                                     Map<Link, Rules> ruleTransTables,
-                                     boolean completeFlowspace)
-    {
-
-        return (true);
-    }*/
-
-    public boolean validateLink (Link link,
+    public TopoLock validateLink (Link link,
                                  Rules ruleTransTable,
                                  boolean completeFlowspace)
-    {
-        if (!completeFlowspace)
-            return (validateLink (link, ruleTransTable));
-        // need to implement this later
-        return (true);
+    {   
+         TopoLock lock = new TopoLock();
+
+        if (!completeFlowspace) {
+            if (!validateLink (link, ruleTransTable, lock)) {
+                synchronized (map) {
+                    map.values().remove(lock);
+                }
+                return (null);       
+            }
+        }
+        return (lock);
     }
 
-    public boolean validatePath (List<NodePortTuple> path,
+    public TopoLock validatePath (List<NodePortTuple> path,
                                  Map<Link, Rules> ruleTransTables,
                                  boolean completeFlowspace)
     {
-        if (!completeFlowspace)
-            return (validatePath(path, ruleTransTables));
-        return (true);
+        TopoLock lock = new TopoLock();
+
+        if (!completeFlowspace) {
+            if (!validatePath(path, ruleTransTables, lock)) {
+                synchronized (map) {
+                    map.values().remove(lock);
+                }
+                return (null); 
+            }
+        }
+        return (lock);
     }
 
     // utility methods
@@ -396,7 +427,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         return (ipHeader);
     }
 
-    public Ethernet getIPv4PacketData (Ethernet ethernet,
+    public Ethernet getIPv4PacketHeader (Ethernet ethernet,
                                         IOFFlowspace flowspace,
                                         boolean isRandom)
     {
@@ -439,11 +470,10 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         return (ethernet);
     }
 
-    public boolean getIPv4PacketOut (IOFSwitch srcSw,
-                                            OFPacketOut po,
-                                            IOFFlowspace flowspace,
-                                            boolean isVlanTagged,
-                                            boolean isRandom)
+    public IPacket getIPv4Packet (IOFSwitch srcSw,
+                                  IOFFlowspace flowspace,
+                                  boolean isVlanTagged,
+                                  boolean isRandom)
     {
         Ethernet ethernet = new Ethernet()
                                 .setSourceMACAddress(MACAddress.long2ByteArray(
@@ -476,51 +506,48 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                 ethernet.setPriorityCode(pcp);
                 ethernet.setVlanID(vlan);
             }
-            ethernet = getIPv4PacketData(ethernet, flowspace, true);
+            ethernet = getIPv4PacketHeader(ethernet, flowspace, true);
         }
 
+        /*
         if (ethernet == null)
             return (false);
         // serialize and wrap in a packet out
         byte[] data = ethernet.serialize();
         po.setPacketData(data);
-        return (true);
+        */
+        return ((IPacket)ethernet);
     }
 
-    public boolean getRandomPacketOut (IOFSwitch srcSw,
-                                        OFPacketOut po,
-                                        IOFFlowspace flowspace)
+    public IPacket getRandomPacket (IOFSwitch srcSw,
+                                    IOFFlowspace flowspace)
     {
-        boolean rv = false;
+        IPacket pkt = null;
         Short DLType = flowspace.getRandomDataLayerType();
         if (DLType == null)
             DLType = Short.valueOf(Ethernet.TYPE_IPv4);
 
         switch (DLType.shortValue()) {
             case Ethernet.TYPE_IPv4:
-                rv = getIPv4PacketOut(srcSw, po, flowspace, false, true);
+                pkt = getIPv4Packet(srcSw, flowspace, false, true);
                 break;
             case Ethernet.TYPE_VLANTAGGED:
-                rv = getIPv4PacketOut(srcSw, po, flowspace, true, true);
+                pkt = getIPv4Packet(srcSw, flowspace, true, true);
                 break;
             default:
                 log.debug("unknown datalayer type");
         }
-        return (rv);
+        return (pkt);
     }
 
-    public boolean getPacketOut (IOFSwitch srcSw,
-                                OFPacketOut po,
-                                IOFFlowspace flowspace)
+    public IPacket getDefinitePacket (IOFSwitch srcSw,
+                                        IOFFlowspace flowspace)
     {
-        return (false);
+        return (null);
     }
 
-    private OFPacketOut generateDefaultPacketOut (IOFSwitch srcSw)
+    private IPacket getDefaultPacket (IOFSwitch srcSw)
     {
-        OFPacketOut po =
-            (OFPacketOut) floodlightProvider.getOFMessageFactory()
-                                            .getMessage(OFType.PACKET_OUT);
         Ethernet ethernet = new Ethernet().setSourceMACAddress(MACAddress.long2ByteArray(
                                                                     srcSw.getId()))
                                           .setDestinationMACAddress(STANDARD_DST_MAC_STRING)
@@ -539,29 +566,23 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                  .setParent(ipHeader);
         ipHeader.setPayload(tcpHeader);
 
-        return (po);
+        return ((IPacket) ethernet);
     }
 
-    public OFPacketOut generatePacketOut (IOFSwitch srcSw,
-                                          IOFFlowspace flowspace,
-                                          boolean random)
+    public IPacket getPacket (IOFSwitch srcSw,
+                              IOFFlowspace flowspace,
+                              boolean random)
     {
-        boolean packetGen = false;
-        OFPacketOut po =
-            (OFPacketOut) floodlightProvider.getOFMessageFactory()
-                                            .getMessage(OFType.PACKET_OUT);
+        IPacket pkt = null;
 
         // need to ensure that the state gets stored in the flowspace
         // object and gets reset when the validation gets completed
         if (random)
-            packetGen = getRandomPacketOut(srcSw, po, flowspace);
+            pkt = getRandomPacket(srcSw, flowspace);
         else
-            packetGen = getPacketOut(srcSw, po, flowspace);
+            pkt = getDefinitePacket(srcSw, flowspace);
 
-        if (!packetGen)
-            return (null);
-
-        return (po);
+        return (pkt);
     }
 
     //internal methods
@@ -621,14 +642,17 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         action.setPort(OFPort.OFPP_CONTROLLER.getValue())
               .setMaxLength((short)0xffff);
 
+        /*
         OFActionDataLayerDestination dstMacRw =
                                     new OFActionDataLayerDestination(STANDARD_DST_MAC_STRING);
 
         OFActionDataLayerSource srcMacRw =
                                     new OFActionDataLayerSource(STANDARD_DST_MAC_STRING);
+
+        */
         List<OFAction> actions = new ArrayList<OFAction>();
-        actions.add(srcMacRw);
-        actions.add(dstMacRw);
+        //actions.add(srcMacRw);
+        //actions.add(dstMacRw);
         actions.add(action);
 
         byte[] packetData = ruleTransTable.getPacketHeader(po.getPacketData());
@@ -642,8 +666,8 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
             .setMatch(match)
             .setActions(actions)
             .setLengthU(OFFlowMod.MINIMUM_LENGTH +
-                        OFActionOutput.MINIMUM_LENGTH +
-                        2*OFActionDataLayer.MINIMUM_LENGTH);
+                        OFActionOutput.MINIMUM_LENGTH);
+                        //2*OFActionDataLayer.MINIMUM_LENGTH);
 
         Integer wildcard_hints = ((Integer) sw.getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
                                                 .intValue()

@@ -15,7 +15,7 @@ public class TopoLock
 
     public TopoLock ()
     {
-
+		inProgress = true;
     }
 
     public void updateTotalCnt(int totalCount)
@@ -26,7 +26,7 @@ public class TopoLock
     public void incrVerifiedCnt()
     {
         synchronized (this) {
-	    if (inProgress)
+	    	if (inProgress)
             	verifiedCnt++;
         }
     }
@@ -58,6 +58,7 @@ public class TopoLock
 
     public void incrementRetryCount ()
     {
+		
         retryCount++;
     }
 

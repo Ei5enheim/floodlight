@@ -17,14 +17,15 @@ import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.topology.IOFFlowspace;
+import net.floodlightcontroller.topovalidation.internal.TopoLock;
 
 public interface ITopoValidationService extends IFloodlightService
 {
-    public boolean validateLink (Link link,
+    public TopoLock validateLink (Link link,
                                  Rules ruleTransTable,
 				 boolean completeFlowspace);
 
-    public boolean validatePath (List<NodePortTuple> path,
+    public TopoLock validatePath (List<NodePortTuple> path,
                                  Map<Link, Rules> ruleTransTables, 
                                  boolean completeFlowspace);
 
@@ -34,7 +35,7 @@ public interface ITopoValidationService extends IFloodlightService
                                      boolean completeFlowspace);
     */
 
-    public boolean validateTopology (List<Link> links,
+    public TopoLock validateTopology (List<Link> links,
 				     Map<Link, Rules> ruleTransTables,
                                      boolean completeFlowspace); 
 }
