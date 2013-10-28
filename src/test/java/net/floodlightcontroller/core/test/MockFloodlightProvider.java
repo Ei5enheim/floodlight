@@ -410,4 +410,8 @@ public class MockFloodlightProvider implements IFloodlightModule, IFloodlightPro
         
     }
 
+    public boolean allPresent(Set<Long> switches) {
+        return (false);
+    }
+    
 }
