@@ -1464,7 +1464,7 @@ public class Controller implements IFloodlightProviderService,
     {
         this.flowspace = flowspace;
 
-        if (ports2BUpdated) {
+        if (ports2BUpdated && (flowspace != null)) {
             for (IOFSwitch sw: activeSwitches.values()) {
                 sw.setPortsFlowspace(flowspace);
             }
@@ -2114,7 +2114,21 @@ public class Controller implements IFloodlightProviderService,
 
     public boolean allPresent (Set<Long> switches)
     {
-		return (activeSwitches.values().containsAll(switches));
+		Set<Long> clone = new HashSet<Long>(switches);
+
+		for (IOFSwitch sw: activeSwitches.values()) {
+			log.trace("switch: {}", sw.getId());
+			if (clone.contains(sw.getId())) {
+				clone.remove(sw.getId());
+			}
+		}
+		for (Long l: switches)
+            log.trace("Read switch: {}", l);
+
+		if (clone.isEmpty())
+			return (true);
+		
+		return (false);
     }
 
 }

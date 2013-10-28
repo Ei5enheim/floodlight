@@ -143,16 +143,22 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
  
         public void run()
         {
-             List<IGraphDBRequest> clone = null;
+			logger.trace("*************** Executing the updates thread *************");	
+            List<IGraphDBRequest> clone = null;
             try {
                 if (!queue.isEmpty()) {
                     synchronized (queue) {
                         // No need of a deep as we are not going to modify any data
                         clone = new ArrayList(queue);
                     }
+					logger.trace("*********** Checking if the switches are ready *******"); 
                     //TODO need replace it with a loop, 
                     IGraphDBRequest req = clone.get(indx);
                     if (floodlightProvider.allPresent(req.getSwitches())) {
+			 			synchronized (queue) {
+							queue.remove(indx);
+						}
+						logger.trace("*************** Switches are ready, starting a worker thread *************");	
                         WorkerThread worker = new WorkerThread(req, ses);
                         ses.execute(worker);
                     }
@@ -177,13 +183,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
     public Map<Class<? extends IFloodlightService>,
            IFloodlightService> getServiceImpls()
-           {
+    {
                Map <Class<? extends IFloodlightService>, IFloodlightService> map =
                    new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
 
                map.put(IGraphDBReaderService.class, this);
                return (map);
-           }
+    }
 
     public Collection<Class<? extends IFloodlightService>> getModuleDependencies()
     {
@@ -211,6 +217,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         startServer();
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
         updatesTask = new SingletonTask(ses, new UpdatesThread(ses));
+	updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
         logger.info("\n ****Starting the Graphdb reader module****\n");
     }
 
@@ -276,39 +283,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         }
 
         IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
-                ruleTransTables, links, switches);
+                					ruleTransTables, links, switches);
         queue.add(node);
-        /*
-           try { 
-           logger.trace("*********starting topology update ***********");
-        //linkManager.blockLinkDiscovery();
-        floodlightProvider.addFlowspace(flowspace);
-        floodlightProvider.addRuleTransTables(ruleTransTables);
-        floodlightProvider.addDomainMapper(domainMapper);
-        //floodlightProvider.addSwitches(switches);
-        /*UNCOMMENT need to reconsider this
-        try {
-        synchronized(switches) {
-        switches.wait();
-        }
-        } catch (InterruptedException ie) {
-        logger.trace("***********caught an InterruptedException ***********"); 
-        }
-
-        logger.trace("*********In the middle of it ***********");
-        topoValidator.validateTopology(links, ruleTransTables, false);
-        //Invoke the topovalidator here using the topolock here.
-        // Need to deal with the combination part and leaving out the
-        // single node from a seperate domain and the lock part.
-        Link[] topoLinks = new Link[links.size()];
-        topoLinks = links.toArray(topoLinks);
-        logger.trace("*********At the end of it ***********");
-        linkManager.addLinks(topoLinks);
-        logger.trace("******** Added links to the topology ***********");
-        //linkManager.enableLinkDiscovery();
-        } catch (Exception e) {
-        System.out.println("got you!!!!!!!!!");
-        }*/
     }
 
     private void processEdge (Edge e, HashSet <Vertex> vertices,
@@ -440,7 +416,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
     public Boolean parse(byte[] file)
     {
-        readGraph(file);
+	try {
+        	readGraph(file);
+	} catch (Exception e) {
+		logger.trace("****** caught an exception {} ******", e);
+		e.printStackTrace();
+	}
+	logger.trace("******* Finished executing client call ******");
         return (true);
     }
 
@@ -448,7 +430,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     protected ILinkDiscoveryService linkManager;
     protected ITopoValidationService topoValidator;
     protected IThreadPoolService threadPool;
-    protected List<IGraphDBRequest> queue;
+    protected static List<IGraphDBRequest> queue;
     protected SingletonTask updatesTask;
     protected static Logger logger;
     private static final int port = 6999;

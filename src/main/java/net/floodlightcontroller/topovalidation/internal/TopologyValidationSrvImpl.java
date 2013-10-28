@@ -250,6 +250,8 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (pkt == null)
             return false;
 
+	log.trace("Generated packet {}", pkt);
+
         po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
                                             .getMessage(OFType.PACKET_OUT);
         po.setPacketData(pkt.serialize());
@@ -655,7 +657,15 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         //actions.add(dstMacRw);
         actions.add(action);
 
-        byte[] packetData = ruleTransTable.getPacketHeader(po.getPacketData());
+	byte[] packetData = po.getPacketData();
+	
+	log.trace("packet data {} ", packetData);
+
+	if (ruleTransTable != null)
+            packetData = ruleTransTable.getPacketHeader(packetData);
+
+	if (packetData == null)
+		log.trace("packet is null");
 
         match.loadFromPacket(packetData, inPort);
         fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
