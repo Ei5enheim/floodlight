@@ -8,6 +8,8 @@ package net.floodlightcontroller.circuitswitching;
 public class CircuitIDGen
 {
     protected long dpID;
+	protected int startBit;
+	protected int endBit;
     protected Object lock;
     protected long circuitCount;
 

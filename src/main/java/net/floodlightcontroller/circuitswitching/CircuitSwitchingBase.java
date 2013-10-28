@@ -1001,6 +1001,18 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
     }
 
+
+	public void setDelegatedSrcMAC (long delegatedSrcMAC, int start, int end)
+	{
+		this.delegatedSrcMAC = delegatedSrcMAC;
+		this.startIndx = start;
+		this.endIndx = end;
+	}
+
+    private String PathIDStoreName;
+	private Long delegatedSrcMAC;
+	private int startBit;
+	private int endBit;
     private final long ISSRCROOTED_MSK = 0x1L;
     private final long DPID_MSK = 0x0000FFFFFFFFFFFFL;
     private final long LAdminMAC_MSK = 0x0000020000000000L;
