@@ -506,7 +506,22 @@ public class IPv4 extends BasePacket {
     @Override
     public int hashCode() {
         final int prime = 2521;
-        int result = super.hashCode();
+	System.out.println("IP packet hash");
+	int result = super.hashCode();
+	System.out.println("ip payload hashcode: " + result);
+	System.out.println("checksum: "+ checksum);
+	System.out.println("dst IP: " + destinationAddress);
+	System.out.println("diffserv: " + diffServ);
+	System.out.println("flags: "+ flags);
+	System.out.println("fragmentOffset: " + fragmentOffset);
+	System.out.println("headerLength: "+ headerLength);
+	System.out.println("identification: "+identification);
+	System.out.println("Arrays.hashCode(options)" + Arrays.hashCode(options));
+	System.out.println("protocol: " + protocol);
+	System.out.println("sourceAddress: " + sourceAddress);
+	System.out.println("totalLength: " + totalLength);
+	System.out.println("ttl: " + ttl);
+	System.out.println("version: "+version);
         result = prime * result + checksum;
         result = prime * result + destinationAddress;
         result = prime * result + diffServ;

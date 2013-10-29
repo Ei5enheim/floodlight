@@ -98,6 +98,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         public void run()
         {
+			logger.trace("Executing worker thread");	
             if (lock == null) {
                 logger.debug("*******Exception, Unable to validate topology, lock is null*******");
                 return;
@@ -333,8 +334,10 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                     ", dstPort = "+  (String)inNode.getProperty("Port"));
             link = new Link (tailDpid, tailSwitchPort.getPortId(),
                     headDpid, headSwitchPort.getPortId());
-            links.add(link);
-            ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
+            links.add(link);	
+
+			if (e.getProperty("Rules") != null)	
+            	ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
 
         } else {
             // for now ignoring the "can be connected links"

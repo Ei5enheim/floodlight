@@ -15,7 +15,7 @@ public class TopoLock
 
     public TopoLock ()
     {
-		inProgress = true;
+	inProgress = true;
     }
 
     public void updateTotalCnt(int totalCount)
@@ -33,12 +33,16 @@ public class TopoLock
 
     public void taskComplete()
     {
-        inProgress = false;
+	synchronized (this) {
+        	inProgress = false;
+	}
     }
 
     public void taskInProgress()
     {
-        inProgress = true;
+	synchronized (this) {
+       		inProgress = true;
+	}
     }
 
     public boolean getTaskStatus()
@@ -53,12 +57,12 @@ public class TopoLock
 
     public boolean checkValidationStatus ()
     {
+	System.out.println("**** count= "+ verifiedCnt+", verifyCnt= "+ verifyCnt+"***");
         return (verifyCnt == verifiedCnt);
     }
 
     public void incrementRetryCount ()
     {
-		
         retryCount++;
     }
 

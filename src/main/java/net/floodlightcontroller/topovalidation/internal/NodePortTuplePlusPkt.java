@@ -36,13 +36,18 @@ public class NodePortTuplePlusPkt
 
 	public int hashCode()
 	{
-        final int prime = 5557;
-        int result = 1;
-        result = prime * result + swPort.hashCode();
-        result = prime * result + pkt.hashCode();
-        return result;
+		final int prime = 5557;
+		int result = 1;
+		System.out.println("Calling hashCode from NPTPP");
+		int swHash = swPort.hashCode();
+		int pktHash =  pkt.hashCode();
+		System.out.println("switch Port hashcode:" + swHash);
+		System.out.println("pkt Hash code: " + pktHash);
+		result = prime * result + swHash;
+		result = prime * result + pktHash;
+		return result;
 	}
-	
+
 	public boolean equals(Object obj)
 	{
 		if (obj == null)
@@ -50,7 +55,7 @@ public class NodePortTuplePlusPkt
 
 		if (this == obj)
 			return true;
-	
+
 		if (!(obj instanceof NodePortTuplePlusPkt))
 			return false;
 

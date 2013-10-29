@@ -326,8 +326,17 @@ public class Ethernet extends BasePacket {
      */
     @Override
     public int hashCode() {
+	//System.out.println("Inside Ethernet's hashcode");
         final int prime = 7867;
-        int result = super.hashCode();
+	System.out.println("Ethernet now");
+	int result = super.hashCode();
+	System.out.println("Ethernet payload Hashcode: " + result);
+	System.out.println("destinaMAC.hashcode = " + destinationMACAddress.hashCode());
+	System.out.println("ethertype = " + etherType);
+	System.out.println("vlanID = " + vlanID);
+	System.out.println("pcp = " + priorityCode);
+	System.out.println("pad = " + (pad ? 1231 : 1237));
+	System.out.println("sourceMACAddress = " + sourceMACAddress.hashCode());
         result = prime * result + destinationMACAddress.hashCode();
         result = prime * result + etherType;
         result = prime * result + vlanID;

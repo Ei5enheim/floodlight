@@ -180,6 +180,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     public Command receive (IOFSwitch sw, OFMessage msg,
                             FloodlightContext cntx)
     {
+		
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                     IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
         /* check for the ARP request packet
@@ -193,20 +194,25 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         OFPacketIn pktIn = (OFPacketIn) msg;
         NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(sw.getId(),
                                                                         pktIn.getInPort()),
-                                                                eth);
-                                                                            
+                                                                		eth);
+
+	log.trace("Received a packet {}", eth);
+	log.trace("*** recvd pktin inport{}, inswitch {} hash {}", new Object[]{pktIn.getInPort(), sw.getId(), key.hashCode()});
+	
         if (map.containsKey(key)) {
             TopoLock lock = map.remove(key);
             if (lock != null) {
+		log.trace("incrementing count");
                 lock.incrVerifiedCnt();
                 if (lock.checkValidationStatus()) {
+		    log.trace("Finished validating a topology ");
                     lock.taskComplete();
                     lock.notifyAll();
                 }
             }
             return Command.STOP;
         }
-        return Command.CONTINUE;
+        return Command.STOP;
     }
 
     // Internal utility methods
@@ -250,7 +256,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (pkt == null)
             return false;
 
-	log.trace("Generated packet {}", pkt);
+		log.trace("Generated packet {}", pkt);
 
         po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
                                             .getMessage(OFType.PACKET_OUT);
@@ -259,8 +265,11 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (!pushFlowMod(po, dstSw, ruleTransTable, link.getDstPort()))
             return (false);
 
-        map.put(new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()),pkt),
-                                         lock);
+	NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), pkt);
+	
+	log.trace("packet port: {} switch: {}", link.getDstPort(), link.getDst());
+
+        map.put(key, lock);
         // May be we need to push a flowmod at the destination switch and with specific mac
         // or anyway we have to store the mapper packet for matching when we receive
         sendPacket (srcSw, link.getSrcPort(), po);
@@ -294,6 +303,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         TopoLock lock = new TopoLock();
 
         if (!completeFlowspace) {
+			lock.updateTotalCnt(links.size());	
             if (!validateTopology (links, ruleTransTables, lock)) {
                 // Aborting the validation part and reseting the lock
                 synchronized (map) {
@@ -659,13 +669,9 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
 	byte[] packetData = po.getPacketData();
 	
-	log.trace("packet data {} ", packetData);
-
-	if (ruleTransTable != null)
+	if (ruleTransTable != null) {
             packetData = ruleTransTable.getPacketHeader(packetData);
-
-	if (packetData == null)
-		log.trace("packet is null");
+	}
 
         match.loadFromPacket(packetData, inPort);
         fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
