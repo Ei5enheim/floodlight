@@ -11,24 +11,25 @@ http://graphml.graphdrawing.org/xmlns/1.1/graphml.xsd">
 <key id="Capabilities" for="edge" attr.name="Capabilities" attr.type="string"></key>
 
 <graph id="G" edgedefault="directed">
-	<node id="1024"><data key="Port">2</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1025"><data key="Port">2</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1026"><data key="Port">3</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1027"><data key="Port">3</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1028"><data key="Port">3</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1029"><data key="Port">3</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1030"><data key="Port">2</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1031"><data key="Port">2</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1032"><data key="Port">1</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1033"><data key="Port">1</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1034"><data key="Port">3</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
-	<node id="1035"><data key="Port">3</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151</data></node>
+	<node id="1024"><data key="Port">2</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1025"><data key="Port">2</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1026"><data key="Port">3</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1027"><data key="Port">3</data><data key="DPID">00002a556e04924a</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1028"><data key="Port">3</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1029"><data key="Port">3</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1030"><data key="Port">2</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1031"><data key="Port">2</data><data key="DPID">00003aadae14b845</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1032"><data key="Port">1</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1033"><data key="Port">1</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1034"><data key="Port">3</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
+	<node id="1035"><data key="Port">3</data><data key="DPID">00001a330da02d40</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">-1062731776/136-151 ^ -1062731776/168-183</data></node>
 
 <edge id="2048" source="1024" target="1027" label="Can be connected to"><data key="Capabilities">L2Switching:VLANtranslation</data></edge>
 <edge id="2049" source="1026" target="1025" label="Can be connected to"><data key="Capabilities">L2Switching:VLANtranslation</data></edge>
 
 <edge id="3072" source="1027" target="1028" label="Is connected to"></edge>
 <edge id="3073" source="1029" target="1026" label="Is connected to"></edge>
+
 
 <edge id="2050" source="1028" target="1031" label="Can be connected to"><data key="Capabilities">L2Switching</data></edge>
 <edge id="2051" source="1030" target="1029" label="Can be connected to"><data key="Capabilities">L2Switching</data></edge>

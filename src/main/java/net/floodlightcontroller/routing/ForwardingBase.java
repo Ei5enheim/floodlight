@@ -24,6 +24,9 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.LinkedList;
+
 
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IFloodlightProviderService;
@@ -47,6 +50,9 @@ import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.OFMessageDamper;
 import net.floodlightcontroller.util.TimedCache;
+
+import org.renci.doe.pharos.flow.Rules;
+import org.renci.doe.pharos.flow.Rule;
 
 import org.openflow.protocol.OFFlowMod;
 import org.openflow.protocol.OFMatch;
@@ -189,6 +195,7 @@ public abstract class ForwardingBase
      *        OFFlowMod.OFPFC_MODIFY etc.
      * @return srcSwitchIincluded True if the source switch is included in this route
      */
+    /*
     @LogMessageDocs({
         @LogMessageDoc(level="WARN",
             message="Unable to push route, switch at DPID {dpid} not available",
@@ -299,6 +306,169 @@ public abstract class ForwardingBase
         }
 
         return srcSwitchIncluded;
+    }*/
+
+    private Integer setActionOutputFlowMod (OFFlowMod fm,
+                                            List<NodePortTuple> switchPortList,
+                                            int wildcard_hints,
+                                            long pinSwitch,
+                                            int indx)
+    {
+        Integer sourceSwOutport = null;
+        // indx and indx-1 will always have the same switch DPID.
+        long switchDPID = switchPortList.get(indx).getNodeId();
+        IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
+        if (sw == null) {
+            if (log.isWarnEnabled()) {
+                log.warn("Unable to push route, switch at DPID {} " +
+                        "not available", switchDPID);
+            }
+            return (sourceSwOutport);
+        }
+
+        short outPort = switchPortList.get(indx).getPortId();
+        short inPort = switchPortList.get(indx-1).getPortId();
+        // set input and output ports on the switch
+        fm.getMatch().setInputPort(inPort);
+        ((OFActionOutput)fm.getActions().get(0)).setPort(outPort);
+        fm.setMatch(wildcard(fm.getMatch(), sw, wildcard_hints));
+
+        if (sw.getId() == pinSwitch) {
+            sourceSwOutport = Integer.valueOf(outPort);
+        } else {
+            sourceSwOutport = Integer.valueOf(0x00FFFFFF);
+        }
+        return (sourceSwOutport);
+    }
+
+    public Integer pushRoute (Route route, OFPacketIn pi, 
+                                long pinSwitch, Integer wildcard_hints,
+                                long cookie,
+                                FloodlightContext cntx,
+                                boolean reqeustFlowRemovedNotifn,
+                                boolean doFlush,
+                                short flowModCommand)
+    {
+        byte[] packetData = Arrays.copyOf(pi.getPacketData(), 
+                                            pi.getPacketData().length);
+        OFMatch match = new OFMatch();
+        Integer sourceSwOutport = null;
+        Rules table = null;
+        Link link = null;
+        OFFlowMod fm = (OFFlowMod) floodlightProvider.getOFMessageFactory()
+                                                     .getMessage(OFType.FLOW_MOD);
+        OFFlowMod srcSwFm = null;
+        OFActionOutput action = new OFActionOutput();
+        LinkedList<OFFlowMod> fmList = new LinkedList<OFFlowMod>();
+        action.setMaxLength((short)0xffff);
+        List<OFAction> actions = new ArrayList<OFAction>();
+        actions.add(action);
+
+        match.loadFromPacket(packetData, pi.getInPort());
+        fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+            .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+            .setBufferId(OFPacketOut.BUFFER_ID_NONE)
+            .setCookie(cookie)
+            .setCommand(flowModCommand)
+            .setMatch(match)
+            .setActions(actions)
+            .setLengthU(OFFlowMod.MINIMUM_LENGTH+OFActionOutput.MINIMUM_LENGTH); 
+        
+        srcSwFm = fm;
+        if ((reqeustFlowRemovedNotifn)
+                && (match.getDataLayerType() != Ethernet.TYPE_ARP)) {
+            try {
+                srcSwFm = fm.clone();
+            } catch (CloneNotSupportedException e) {
+                log.error("Failure cloning flow mod", e);
+            }
+            srcSwFm.setFlags(OFFlowMod.OFPFF_SEND_FLOW_REM);
+            //match.setWildcards(srcSwFm.getMatch().getWildcards());
+        }
+
+        List<NodePortTuple> switchPortList = route.getPath();
+        sourceSwOutport = setActionOutputFlowMod (srcSwFm, switchPortList,
+                                    wildcard_hints, pinSwitch, 1); 
+        
+        if (sourceSwOutport == null)
+            return(null);
+
+        fmList.addFirst(srcSwFm);
+
+        for (int indx = 2; indx < switchPortList.size()-1; indx += 2) {
+            // indx and indx+1 will always have the same switch DPID.
+
+			// This is the link between the present node and the downstream node
+            link = new Link(switchPortList.get(indx-1).getNodeId(),
+                            switchPortList.get(indx-1).getPortId(),
+                            switchPortList.get(indx).getNodeId(),
+                            switchPortList.get(indx).getPortId());
+
+            table = floodlightProvider.getLinkRuleTransTable(link);
+
+            if (table == null) {
+                log.trace("Non-Virtual Link {}", link);
+            } else {
+                packetData = table.getPacketHeader(packetData);
+            }
+
+            fm.getMatch().loadFromPacket(packetData, (short)0x0000);
+            sourceSwOutport = setActionOutputFlowMod (srcSwFm, switchPortList,
+                                                    wildcard_hints, pinSwitch, 1);
+   
+            if (sourceSwOutport == null)
+                return (null);
+
+            fmList.addFirst(fm);
+            
+            try {
+                fm = fm.clone();
+            } catch (CloneNotSupportedException e) {
+                log.error("Failure cloning flow mod", e);
+            }
+        }
+
+        pushFlowMods(switchPortList, cntx, fmList, doFlush);
+        return (sourceSwOutport);
+    }
+
+    private void pushFlowMods (List<NodePortTuple> switchPortList,
+                                FloodlightContext cntx,                            
+                                List<OFFlowMod> fmList,
+                                boolean doFlush)
+    {
+        OFFlowMod fm = null;
+        int i = 0;
+
+        for (int indx = switchPortList.size() -1; indx > 0; indx -=2) {
+            long switchDPID = switchPortList.get(indx).getNodeId();
+            IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
+            if (sw == null) {
+                if (log.isWarnEnabled()) {
+                    log.warn("Unable to push route, switch at DPID {} " +
+                            "not available", switchDPID);
+                }
+                return;
+            }
+            fm = fmList.get(i++); 
+            try {
+                counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
+                if (log.isTraceEnabled()) {
+                    log.trace("Pushing Route flowmod routeIndx={} " + 
+                            "sw={} inPort={}",
+                            new Object[] {indx,
+                            sw,
+                            fm.getMatch().getInputPort()});
+                }
+                messageDamper.write(sw, fm, cntx);
+                if (doFlush) {
+                    sw.flush();
+                    counterStore.updateFlush();
+                }
+            } catch (IOException e) {
+                log.error("Failure writing flow mod", e);
+            }
+        }
     }
 
     protected OFMatch wildcard(OFMatch match, IOFSwitch sw,

@@ -499,8 +499,12 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
 							srcSwOutport = pushRoute(route, pi, sw.getId(), wildcard_hints,
 												cookie, cntx, requestFlowRemovedNotifn,
 												false, OFFlowMod.OFPFC_ADD);
-							if (srcSwOutport != null) 
-								pinSwitchFound = true;   
+							if ((srcSwOutport != null) && (srcSwOutport != 0x00FFFFFF)) {
+								pinSwitchFound = true;
+                            } else if (srcSwOutport == null) {
+                                log.debug("Unable to push route {}", route);
+                                return;
+                            }   
 							continue;
 						} 
 
@@ -531,7 +535,10 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
 						if (srcSwOutport != null) {
 							pinSwitchRWHeaders = rwHeaders;
 							pinSwitchFound = true;
-						}
+						} else if (srcSwOutport == null){
+                            log.debug("Unable to push circuit, {}", route);
+                            return;
+                        }
 					}    
                     iSrcDaps++;
                     iDstDaps++;

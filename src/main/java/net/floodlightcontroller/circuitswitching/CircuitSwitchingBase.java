@@ -275,7 +275,6 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                 short flowModCommand,
                                 LinkedList<byte[]> rwHeaders)
     {
-        boolean srcSwitchIncluded = false;
         OFMatch match = null;
         int index = 0;
         int outputActionIndex = 0;
@@ -296,7 +295,6 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         } else {
             if (logger.isDebugEnabled())
                 logger.debug("MatchList is empty");
-            //return (srcSwitchIncluded);
             return (sourceSwOutport);
         }
 
@@ -304,7 +302,6 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             wildcard_hints = wHintsList.get(index);
         } else {
             logger.debug("WildCard hints list is empty");
-            //return (srcSwitchIncluded);
             return (sourceSwOutport);
         }
 
@@ -325,7 +322,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
             if (sw == null) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("Unable to push circuit, switch at DPID {} " +
+                    logger.warn("Unable to push circuit, switch with DPID {} " +
                             "not available", switchDPID);
                 }
                 //return srcSwitchIncluded;
@@ -341,7 +338,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 match = matchList.get(index);
                 wildcard_hints = wHintsList.get(index); 
                 fm.setMatch(wildcard(match, sw, wildcard_hints));
-		index++;
+                index++;
                 // Set the flag to request flow-mod removal notifications only for the
                 // source switch. The removal message is used to maintain the flow
                 // cache. Don't set the flag for ARP messages - TODO generalize check
@@ -402,11 +399,13 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                     counterStore.updateFlush();
                 }
                 if (sw.getId() == pinSwitch) {
-                    sourceSwOutport = new Integer(outPort);
-                    srcSwitchIncluded = true;
+                    sourceSwOutport = Integer.valueOf(outPort);
+                } else {
+                    sourceSwOutport = Integer.valueOf(0x00FFFFFF);
                 }
             } catch (IOException e) {
                 logger.error("Failure writing flow mod", e);
+                return (null);
             }
     
             if ((switchPortList.size()-1) == indx) {
@@ -416,6 +415,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                     fm = fm.clone();
                 } catch (CloneNotSupportedException e) {
                     logger.error("Failure cloning flow mod", e);
+                    return (null);
                 }
             }
         }
@@ -524,13 +524,13 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         return (sourceSwOutport);
     }*/
 
-    private boolean setActionOutputFlowMod (OFFlowMod fm,
+    private Integer setActionOutputFlowMod (OFFlowMod fm,
                                             List<NodePortTuple> switchPortList,
                                             int wildcard_hints,
                                             long pinSwitch,
-                                            Integer sourceSwOutport,
                                             int indx)
     {
+        Integer sourceSwOutport = null;
         // indx and indx-1 will always have the same switch DPID.
         long switchDPID = switchPortList.get(indx).getNodeId();
         IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
@@ -539,7 +539,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 logger.warn("Unable to push route, switch at DPID {} " +
                         "not available", switchDPID);
             }
-            return (false);
+            return (sourceSwOutport);
         }
 
         short outPort = switchPortList.get(indx).getPortId();
@@ -550,9 +550,11 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         fm.setMatch(wildcard(fm.getMatch(), sw, wildcard_hints));
 
         if (sw.getId() == pinSwitch) {
-            sourceSwOutport = new Integer(outPort);
-        }   
-        return (true);
+            sourceSwOutport = Integer.valueOf(outPort);
+        } else {
+            sourceSwOutport = Integer.valueOf(0x00FFFFFF);
+        }
+        return (sourceSwOutport);
     }
 
     public Integer pushRoute (Route route, OFPacketIn pi, 
@@ -601,9 +603,12 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         }
 
         List<NodePortTuple> switchPortList = route.getPath();
-        setActionOutputFlowMod (srcSwFm, switchPortList,
-                                    wildcard_hints, pinSwitch,
-                                    sourceSwOutport, 1); 
+        sourceSwOutport = setActionOutputFlowMod (srcSwFm, switchPortList,
+                                    wildcard_hints, pinSwitch, 1); 
+        
+        if (sourceSwOutport == null)
+            return(null);
+
         fmList.addFirst(srcSwFm);
 
         for (int indx = 2; indx < switchPortList.size()-1; indx += 2) {
@@ -623,9 +628,12 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             }
 
             fm.getMatch().loadFromPacket(packetData, (short)0x0000);
-            setActionOutputFlowMod (srcSwFm, switchPortList,
-                                        wildcard_hints, pinSwitch,
-                                        sourceSwOutport, 1);
+            sourceSwOutport = setActionOutputFlowMod (srcSwFm, switchPortList,
+                                                    wildcard_hints, pinSwitch, 1);
+   
+            if (sourceSwOutport == null)
+                return (null);
+
             fmList.addFirst(fm);
             
             try {
