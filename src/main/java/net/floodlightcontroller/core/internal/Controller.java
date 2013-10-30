@@ -1664,7 +1664,7 @@ public class Controller implements IFloodlightProviderService,
                                       FloodlightContext bc) {
         if (log.isTraceEnabled()) {
             String str = OFMessage.getDataAsString(sw, m, bc);
-            log.trace("{}", str);
+            //log.trace("Sending the packet out of the controller {}", str);
         }
 
         List<IOFMessageListener> listeners = null;

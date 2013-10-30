@@ -75,15 +75,15 @@ public abstract class BasePacket implements IPacket {
         final int prime = 6733;
         int result = 1;
 	if (payload == null) {
-		System.out.println("payload is null ");
+		//System.out.println("payload is null ");
 		result =  prime * result;
-		System.out.println("returning value: "+result);
+		//System.out.println("returning value: "+result);
 		return result;
 	} else {
         	//result = prime * result + ((payload == null) ? 0 : payload.hashCode());
 		result = prime * result + payload.hashCode();
-		System.out.println("payload is NOT null " + payload.getClass().getName());
-		System.out.println("returning value: "+result);
+		//System.out.println("payload is NOT null " + payload.getClass().getName());
+		//System.out.println("returning value: "+result);
 		return result;
 	}
     }

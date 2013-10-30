@@ -123,11 +123,12 @@ public class BSN extends BasePacket {
         } else {
             payload = new Data();
         }
-        
-        this.payload = new Data();
-        this.payload = payload.deserialize(data, bb.position(), bb.limit() - bb.position());
-        this.payload.setParent(this);
-        
+       
+	if (bb.limit() - bb.position() > 0 ) { 
+        	this.payload = new Data();
+        	this.payload = payload.deserialize(data, bb.position(), bb.limit() - bb.position());
+        	this.payload.setParent(this);
+        }
         return this;
     }
 

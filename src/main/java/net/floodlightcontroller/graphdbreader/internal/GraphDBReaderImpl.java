@@ -7,6 +7,7 @@
 package net.floodlightcontroller.graphdbreader.internal;
 
 import net.floodlightcontroller.graphdbreader.IGraphDBReaderService;
+import net.floodlightcontroller.graphdbreader.GraphDBException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.module.IFloodlightService;
@@ -98,22 +99,23 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         public void run()
         {
-			logger.trace("Executing worker thread");	
+			logger.trace("***** Executing worker thread *******");	
             if (lock == null) {
-                logger.debug("*******Exception, Unable to validate topology, lock is null*******");
+                logger.debug("******* Exception, Unable to validate topology, lock is null *******");
                 return;
             }
             try { 
                 if (lock.checkValidationStatus()) {
-                    logger.trace("*********starting topology update ***********");
+                    logger.trace("********* starting topology update ***********");
                     Link[] topoLinks = new Link[topoSlice.getLinks().size()];
                     topoLinks = topoSlice.getLinks().toArray(topoLinks);
-                    logger.trace("*********At the end of it ***********");
                     linkManager.addLinks(topoLinks);
                     logger.trace("******** Added links to the topology ***********");
                 } else {
                     if (lock.getRetryCount() > 3) {
-                        logger.debug("*******Exception, Unable to validate topology*******");
+						throw new GraphDBException (" ******* Exception, Unable to validate topology ******* \n"+
+													"Not all validation packets reached the controller");
+                        //logger.debug("******* Exception, Unable to validate topology *******");
                     }  else {
                         lock.incrementRetryCount();
                         ses.schedule(this, TOPOLOGY_UPDATE_INTERVAL_MS,
@@ -152,14 +154,14 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         // No need of a deep as we are not going to modify any data
                         clone = new ArrayList(queue);
                     }
-					logger.trace("*********** Checking if the switches are ready *******"); 
+					logger.trace("*********** Checking if switches are ready *******"); 
                     //TODO need replace it with a loop, 
                     IGraphDBRequest req = clone.get(indx);
                     if (floodlightProvider.allPresent(req.getSwitches())) {
 			 			synchronized (queue) {
 							queue.remove(indx);
 						}
-						logger.trace("*************** Switches are ready, starting a worker thread *************");	
+						logger.trace("********** Switches are ready, starting a worker thread ********");	
                         WorkerThread worker = new WorkerThread(req, ses);
                         ses.execute(worker);
                     }
@@ -185,11 +187,11 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     public Map<Class<? extends IFloodlightService>,
            IFloodlightService> getServiceImpls()
     {
-               Map <Class<? extends IFloodlightService>, IFloodlightService> map =
-                   new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
+		Map <Class<? extends IFloodlightService>, IFloodlightService> map =
+        			new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
 
-               map.put(IGraphDBReaderService.class, this);
-               return (map);
+		map.put(IGraphDBReaderService.class, this);
+		return (map);
     }
 
     public Collection<Class<? extends IFloodlightService>> getModuleDependencies()
@@ -218,8 +220,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         startServer();
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
         updatesTask = new SingletonTask(ses, new UpdatesThread(ses));
-	updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
-        logger.info("\n ****Starting the Graphdb reader module****\n");
+		updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
+        logger.info("\n **** Starting the Graphdb reader module ****\n");
     }
 
     // internal utility methods
@@ -240,14 +242,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         if (file.exists())
             file.delete();
+
         stream = new ByteArrayInputStream(xmlFile);
-        /*
-           try {
-        //stream = new BufferedInputStream(
-        //                            new FileInputStream("graph/topology.xml"));
-        } catch (FileNotFoundException fnf) {
-        logger.trace("Caught a FileNotFoundException {} ", fnf);  
-        }*/
         flowspace = new ConcurrentHashMap <NodePortTuple, IOFFlowspace[]>();
         ruleTransTables = new ConcurrentHashMap <Link, Rules>();
         links = new ArrayList<Link>();
@@ -264,8 +260,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 processEdge(e, vertices, switches, pruneList, 
                         links, flowspace, domainMapper,
                         ruleTransTables, localDomain);
-            } catch (FlowspaceException t) {
-                logger.trace("*********caught an exception {}*********", t); 
+            } catch (FlowspaceException fe) {
+                logger.trace("*********caught an exception {}*********", fe); 
             }
         }
 
@@ -277,8 +273,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                     processEdge(e, vertices, switches, pruneList,
                             links, flowspace, domainMapper,
                             ruleTransTables, localDomain);
-                } catch (FlowspaceException t) {
-                    logger.trace("*********caught an exception {}*********", t);
+                } catch (FlowspaceException fs) {
+                    logger.trace("*********caught an exception {}*********", fs);
                 }
             }
         }
@@ -318,20 +314,18 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         isPhysEdge = e.getLabel().equals(wantedLabel);
 
-        //headDpid = Long.valueOf((String)inNode.getProperty("DPID"));
         headDpid = new BigInteger((String)inNode.getProperty("DPID"), 16).longValue();
         headSwitchPort = new NodePortTuple(headDpid,
                 Short.valueOf((String)inNode.getProperty("Port")));
 
-        //tailDpid = Long.valueOf((String)outNode.getProperty("DPID"));
         tailDpid = new BigInteger((String)outNode.getProperty("DPID"),16).longValue();
         tailSwitchPort = new NodePortTuple(tailDpid,
                 Short.valueOf((String)outNode.getProperty("Port")));
 
         if (isPhysEdge) {
-            System.out.println("link between {srcDpid = "+ tailDpid +", srcPort = "+ 
+            /*System.out.println("link between {srcDpid = "+ tailDpid +", srcPort = "+ 
                     (String)outNode.getProperty("Port") + " ----> {dstDpid = "+ headDpid +
-                    ", dstPort = "+  (String)inNode.getProperty("Port"));
+                    ", dstPort = "+  (String)inNode.getProperty("Port"));*/
             link = new Link (tailDpid, tailSwitchPort.getPortId(),
                     headDpid, headSwitchPort.getPortId());
             links.add(link);	
@@ -345,25 +339,25 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         if (!vertices.contains(inNode) &&
                 inNode.getProperty("domain").equals(localDomain)) {
-            vertices.add(inNode);
+            	vertices.add(inNode);
             if (!switches.contains(headDpid)) {
                 switches.add(headDpid);
-                System.out.println("Vertex is " + inNode.getProperty("DPID") + ", " + inNode.getId());
+                //System.out.println("Vertex is " + inNode.getProperty("DPID") + ", " + inNode.getId());
                 domainMapper.put(headDpid, (String)inNode.getProperty("domain"));
             }
             if (flowspace.get(headSwitchPort) == null)
                 flowspace.put(headSwitchPort, new IOFFlowspace[2]);
-            System.out.println("Domain: "+ inNode.getProperty("domain")+" Node: "+ 
+            	/*System.out.println("Domain: "+ inNode.getProperty("domain")+" Node: "+ 
                     inNode.getProperty("DPID") + " Port: " + 
-                    inNode.getProperty("Port"));
+                    inNode.getProperty("Port"));*/
             if (isPhysEdge) {
-                System.out.println("[Ingress] Flowspace: " 
-                        + inNode.getProperty("Flowspace"));
+                //System.out.println("[Ingress] Flowspace: " 
+                //        + inNode.getProperty("Flowspace"));
                 flowspace.get(headSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
                         (String) inNode.getProperty("Flowspace"));
             } else {
-                System.out.println("[Egress] Flowspace: "
-                        + inNode.getProperty("Flowspace"));
+                //System.out.println("[Egress] Flowspace: "
+                //        + inNode.getProperty("Flowspace"));
                 flowspace.get(headSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
                         (String)inNode.getProperty("Flowspace"));
             }
@@ -374,21 +368,21 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             if (!switches.contains(tailDpid)) {
                 switches.add(tailDpid);
                 domainMapper.put(tailDpid, (String) outNode.getProperty("domain"));
-                System.out.println("Vertex is " + outNode.getProperty("DPID") + ", " + outNode.getId());
+                //System.out.println("Vertex is " + outNode.getProperty("DPID") + ", " + outNode.getId());
             }
             if (flowspace.get(tailSwitchPort) == null)
                 flowspace.put(tailSwitchPort, new IOFFlowspace[2]);
 
-            System.out.println("Domain: " + outNode.getProperty("domain") + " Node: " +
-                    outNode.getProperty("DPID") + " Port: "+ outNode.getProperty("Port"));
+            /*System.out.println("Domain: " + outNode.getProperty("domain") + " Node: " +
+                    outNode.getProperty("DPID") + " Port: "+ outNode.getProperty("Port"));*/
             if (isPhysEdge) {
                 flowspace.get(tailSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
                         (String) outNode.getProperty("Flowspace"));
-                System.out.println("[Egress] Flowspace: " + outNode.getProperty("Flowspace"));
+                //System.out.println("[Egress] Flowspace: " + outNode.getProperty("Flowspace"));
             } else {
                 flowspace.get(tailSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
                         (String) outNode.getProperty("Flowspace"));;
-                System.out.println("[Ingress] Flowspace: " + outNode.getProperty("Flowspace"));
+                //System.out.println("[Ingress] Flowspace: " + outNode.getProperty("Flowspace"));
             }
         }
     }
@@ -419,13 +413,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
     public Boolean parse(byte[] file)
     {
-	try {
+		try {
         	readGraph(file);
-	} catch (Exception e) {
-		logger.trace("****** caught an exception {} ******", e);
-		e.printStackTrace();
-	}
-	logger.trace("******* Finished executing client call ******");
+		} catch (Exception e) {
+			logger.trace("****** caught an exception {} ******", e);
+			e.printStackTrace();
+		}
+		logger.trace("******* Finished executing client call ******");
         return (true);
     }
 

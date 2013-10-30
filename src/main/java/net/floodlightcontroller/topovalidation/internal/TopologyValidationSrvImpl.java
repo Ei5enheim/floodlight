@@ -84,22 +84,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     protected ICounterStoreService counterStore;
     protected IThreadPoolService threadPool;
 
-    /*
-    private static class WorkerThread implements Runnable
-    {
-        public void run()
-        {
-            synchronized (lock) {
-                if ((lock.getRetryCount() > 3) ||
-                    lock.checkValidationStatus()) {
-                    lock.notifyAll();
-                } else {
-                   ses.schedule(this, RETRY_INTERVAL, TimeUnit.MILLISECONDS);
-                }
-            }
-        }
-    }*/
-
     /**************************
         IMessageListeners
      *************************/
@@ -183,36 +167,32 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 		
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                     IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        /* check for the ARP request packet
-        if ((Arrays.equals(eth.getDestinationMACAddress(),
-                          STANDARD_DST_MAC_STRING)) &&
-            (Arrays.equals(eth.getSourceMACAddress(),
-                            STANDARD_DST_MAC_STRING))) {
-            //need to increment the counter here.
-            return Command.STOP;
-        }*/
+
         OFPacketIn pktIn = (OFPacketIn) msg;
         NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(sw.getId(),
                                                                         pktIn.getInPort()),
                                                                 		eth);
 
-	log.trace("Received a packet {}", eth);
-	log.trace("*** recvd pktin inport{}, inswitch {} hash {}", new Object[]{pktIn.getInPort(), sw.getId(), key.hashCode()});
+		log.trace("Received a packet {}", eth);
+		//log.trace("*** recvd pktin inport{}, inswitch {} hash {}",
+			//new Object[]{pktIn.getInPort(), sw.getId(), key.hashCode()});
 	
         if (map.containsKey(key)) {
             TopoLock lock = map.remove(key);
             if (lock != null) {
-		log.trace("incrementing count");
+				log.trace("incrementing count");
                 lock.incrVerifiedCnt();
                 if (lock.checkValidationStatus()) {
-		    log.trace("Finished validating a topology ");
+		    		log.trace("Finished validating the topology ");
                     lock.taskComplete();
-                    lock.notifyAll();
+					synchronized (lock) {
+                    	lock.notifyAll();
+					}
                 }
             }
             return Command.STOP;
         }
-        return Command.STOP;
+        return Command.CONTINUE;
     }
 
     // Internal utility methods
@@ -256,7 +236,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (pkt == null)
             return false;
 
-		log.trace("Generated packet {}", pkt);
+		//log.trace("Generated packet {}", pkt);
 
         po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
                                             .getMessage(OFType.PACKET_OUT);
@@ -265,9 +245,9 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (!pushFlowMod(po, dstSw, ruleTransTable, link.getDstPort()))
             return (false);
 
-	NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), pkt);
+		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), pkt);
 	
-	log.trace("packet port: {} switch: {}", link.getDstPort(), link.getDst());
+		log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(), link.getDst());
 
         map.put(key, lock);
         // May be we need to push a flowmod at the destination switch and with specific mac
@@ -521,13 +501,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
             ethernet = getIPv4PacketHeader(ethernet, flowspace, true);
         }
 
-        /*
-        if (ethernet == null)
-            return (false);
-        // serialize and wrap in a packet out
-        byte[] data = ethernet.serialize();
-        po.setPacketData(data);
-        */
         return ((IPacket)ethernet);
     }
 
@@ -610,8 +583,8 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                OFPacketOut po)
     {
         if (log.isTraceEnabled()) {
-            log.trace("PacketOut srcSwitch={} ",
-                            new Object[] {sw});
+            log.trace("PacketOut srcSwitch={} po={} ",
+                            new Object[] {sw, po});
         }
         // set actions
         List<OFAction> actions = new ArrayList<OFAction>();
@@ -654,24 +627,14 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         action.setPort(OFPort.OFPP_CONTROLLER.getValue())
               .setMaxLength((short)0xffff);
 
-        /*
-        OFActionDataLayerDestination dstMacRw =
-                                    new OFActionDataLayerDestination(STANDARD_DST_MAC_STRING);
-
-        OFActionDataLayerSource srcMacRw =
-                                    new OFActionDataLayerSource(STANDARD_DST_MAC_STRING);
-
-        */
         List<OFAction> actions = new ArrayList<OFAction>();
-        //actions.add(srcMacRw);
-        //actions.add(dstMacRw);
         actions.add(action);
 
-	byte[] packetData = po.getPacketData();
-	
-	if (ruleTransTable != null) {
-            packetData = ruleTransTable.getPacketHeader(packetData);
-	}
+		byte[] packetData = po.getPacketData();
+
+		if (ruleTransTable != null) {
+				packetData = ruleTransTable.getPacketHeader(packetData);
+		}
 
         match.loadFromPacket(packetData, inPort);
         fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
@@ -683,7 +646,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
             .setActions(actions)
             .setLengthU(OFFlowMod.MINIMUM_LENGTH +
                         OFActionOutput.MINIMUM_LENGTH);
-                        //2*OFActionDataLayer.MINIMUM_LENGTH);
 
         Integer wildcard_hints = ((Integer) sw.getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
                                                 .intValue()
@@ -694,8 +656,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                                 & ~OFMatch.OFPFW_NW_SRC_MASK
                                                 & ~OFMatch.OFPFW_NW_DST_MASK;
         wildcard_hints = wildcard_hints | OFMatch.OFPFW_DL_VLAN;
-                                        //| OFMatch.OFPFW_NW_SRC_MASK
-                                        //| OFMatch.OFPFW_NW_DST_MASK;
         fm.getMatch().setWildcards(wildcard_hints);
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, fm);

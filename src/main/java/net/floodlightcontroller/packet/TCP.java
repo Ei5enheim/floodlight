@@ -224,12 +224,12 @@ public class TCP extends BasePacket {
     @Override
     public int hashCode() {
         final int prime = 5807;
-	System.out.println("TCP hash now");
+	//System.out.println("TCP hash now");
         int result = super.hashCode();
-	System.out.println("tcp payload hashcode: " + result);
+	/*System.out.println("tcp payload hashcode: " + result);
 	System.out.println("checksum: " + checksum);
 	System.out.println("destinationPort: "+ destinationPort);
-	System.out.println("sourcePort: " + sourcePort);
+	System.out.println("sourcePort: " + sourcePort);*/
         result = prime * result + checksum;
         result = prime * result + destinationPort;
         result = prime * result + sourcePort;

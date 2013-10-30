@@ -161,10 +161,12 @@ public class ICMP extends BasePacket {
         this.icmpType = bb.get();
         this.icmpCode = bb.get();
         this.checksum = bb.getShort();
-        
-        this.payload = new Data();
-        this.payload = payload.deserialize(data, bb.position(), bb.limit()-bb.position());
-        this.payload.setParent(this);
+       
+	if (bb.limit()-bb.position() > 0) { 
+        	this.payload = new Data();
+        	this.payload = payload.deserialize(data, bb.position(), bb.limit()-bb.position());
+        	this.payload.setParent(this);
+	}
         return this;
     }
 }

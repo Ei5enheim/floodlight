@@ -578,7 +578,9 @@ public abstract class OFSwitchBase implements IOFSwitch {
     public void flush() {
         Map<IOFSwitch,List<OFMessage>> msg_buffer_map = local_msg_buffer.get();
         List<OFMessage> msglist = msg_buffer_map.get(this);
+
         if ((msglist != null) && (msglist.size() > 0)) {
+		log.trace("****** FLUSHING all the pakcets in the switch {}", stringId); 
             try {
                 this.write(msglist);
             } catch (IOException e) {

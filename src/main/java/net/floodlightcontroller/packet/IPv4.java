@@ -375,8 +375,10 @@ public class IPv4 extends BasePacket {
         int remLength = bb.limit()-bb.position();
         if (remLength < payloadLength)
             payloadLength = bb.limit()-bb.position();
-        this.payload = payload.deserialize(data, bb.position(), payloadLength);
-        this.payload.setParent(this);
+	if (payloadLength > 0) {
+        	this.payload = payload.deserialize(data, bb.position(), payloadLength);
+        	this.payload.setParent(this);
+	}
 
         if (this.totalLength > length)
             this.isTruncated = true;
@@ -506,9 +508,9 @@ public class IPv4 extends BasePacket {
     @Override
     public int hashCode() {
         final int prime = 2521;
-	System.out.println("IP packet hash");
+	//System.out.println("IP packet hash");
 	int result = super.hashCode();
-	System.out.println("ip payload hashcode: " + result);
+	/*System.out.println("ip payload hashcode: " + result);
 	System.out.println("checksum: "+ checksum);
 	System.out.println("dst IP: " + destinationAddress);
 	System.out.println("diffserv: " + diffServ);
@@ -521,7 +523,7 @@ public class IPv4 extends BasePacket {
 	System.out.println("sourceAddress: " + sourceAddress);
 	System.out.println("totalLength: " + totalLength);
 	System.out.println("ttl: " + ttl);
-	System.out.println("version: "+version);
+	System.out.println("version: "+version);*/
         result = prime * result + checksum;
         result = prime * result + destinationAddress;
         result = prime * result + diffServ;
