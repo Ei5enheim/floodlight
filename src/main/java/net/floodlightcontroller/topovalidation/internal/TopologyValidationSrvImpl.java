@@ -602,7 +602,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, po);
-            messageDamper.write(sw, po, null);
+            messageDamper.write(sw, po, null, true);
         } catch (IOException e) {
             log.error("Failure writing packet out", e);
         }
