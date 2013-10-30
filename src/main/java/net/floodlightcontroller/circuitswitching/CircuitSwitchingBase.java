@@ -643,7 +643,8 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             }
         }
 
-        pushFlowMods(switchPortList, cntx, fmList, doFlush);
+        if (!pushFlowMods(switchPortList, cntx, fmList, doFlush))
+			return (null);
         return (sourceSwOutport);
     }
 
@@ -662,7 +663,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                     logger.warn("Unable to push route, switch at DPID {} " +
                             "not available", switchDPID);
                 }
-                return;
+                return false;
             }
             fm = fmList.get(i++); 
             try {
@@ -681,8 +682,10 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 }
             } catch (IOException e) {
                 logger.error("Failure writing flow mod", e);
+				return false;
             }
         }
+		return true;
     }
 
     protected boolean modifyDLHeaders (OFPacketIn pi, LinkedList<byte[] > list)

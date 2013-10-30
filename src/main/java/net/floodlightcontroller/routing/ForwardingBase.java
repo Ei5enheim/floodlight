@@ -428,11 +428,12 @@ public abstract class ForwardingBase
             }
         }
 
-        pushFlowMods(switchPortList, cntx, fmList, doFlush);
+        if (!pushFlowMods(switchPortList, cntx, fmList, doFlush))
+			return (null);
         return (sourceSwOutport);
     }
 
-    private void pushFlowMods (List<NodePortTuple> switchPortList,
+    private boolean pushFlowMods (List<NodePortTuple> switchPortList,
                                 FloodlightContext cntx,                            
                                 List<OFFlowMod> fmList,
                                 boolean doFlush)
@@ -447,8 +448,9 @@ public abstract class ForwardingBase
                 if (log.isWarnEnabled()) {
                     log.warn("Unable to push route, switch at DPID {} " +
                             "not available", switchDPID);
+					
                 }
-                return;
+                return false;
             }
             fm = fmList.get(i++); 
             try {
@@ -467,8 +469,10 @@ public abstract class ForwardingBase
                 }
             } catch (IOException e) {
                 log.error("Failure writing flow mod", e);
+				return (false);
             }
         }
+		return (true);
     }
 
     protected OFMatch wildcard(OFMatch match, IOFSwitch sw,
