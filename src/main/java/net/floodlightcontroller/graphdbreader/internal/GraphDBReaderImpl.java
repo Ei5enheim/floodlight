@@ -99,7 +99,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         public void run()
         {
-			logger.trace("***** Executing worker thread *******");	
+			//logger.trace("***** Executing worker thread *******");	
             if (lock == null) {
                 logger.debug("******* Exception, Unable to validate topology, lock is null *******");
                 return;
@@ -146,7 +146,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
  
         public void run()
         {
-			logger.trace("*************** Executing the updates thread *************");	
+			//logger.trace("*************** Executing the updates thread *************");	
             List<IGraphDBRequest> clone = null;
             try {
                 if (!queue.isEmpty()) {
@@ -224,6 +224,15 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         logger.info("\n **** Starting the Graphdb reader module ****\n");
     }
 
+	public String getFileName()
+	{
+		String fileName = "./db/";
+		synchronized (this) {
+			fileName = fileName + String.valueOf(count)+".xml";
+		}
+		return (fileName);
+	}
+
     // internal utility methods
     public void readGraph (byte[] xmlFile)
     {
@@ -235,7 +244,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         Map <Link, Rules> ruleTransTables;
         List<Link> links;
         String localDomain = null;
-        String fileName = "./db/topology.dex";
+        String fileName = getFileName();
         ByteArrayInputStream stream = null; 
         //BufferedInputStream stream = null;
         File file = new File(fileName);
@@ -437,4 +446,5 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     private final int FLOWSPACE_SIZE = 2, INGRESS = 0, EGRESS = 1;
     private final int SWITCH_STATE_UPDATE_INTERVAL_MS = 400;
     private final int TOPOLOGY_UPDATE_INTERVAL_MS = 200;
+	private static int count = 0;
 }

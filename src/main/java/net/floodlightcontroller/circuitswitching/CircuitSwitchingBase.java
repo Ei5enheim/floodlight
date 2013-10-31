@@ -648,7 +648,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         return (sourceSwOutport);
     }
 
-    private void pushFlowMods (List<NodePortTuple> switchPortList,
+    private boolean pushFlowMods (List<NodePortTuple> switchPortList,
                                 FloodlightContext cntx,                            
                                 List<OFFlowMod> fmList,
                                 boolean doFlush)
