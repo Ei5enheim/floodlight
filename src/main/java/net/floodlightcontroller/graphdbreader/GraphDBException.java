@@ -17,7 +17,7 @@ public class GraphDBException extends Exception
 
     public GraphDBException (String msg)
     {
-        super();
+        this();
         message = msg;
     }
 
@@ -26,7 +26,7 @@ public class GraphDBException extends Exception
         return (message);
     }
 
-    public String getMsg()
+    public String getMessage()
     {
         return (message);
     }

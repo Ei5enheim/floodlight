@@ -99,29 +99,29 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         public void run()
         {
-			//logger.trace("***** Executing worker thread *******");	
-            if (lock == null) {
-                logger.debug("******* Exception, Unable to validate topology, lock is null *******");
-                return;
-            }
-            try { 
-                if (lock.checkValidationStatus()) {
-                    logger.trace("********* starting topology update ***********");
-                    Link[] topoLinks = new Link[topoSlice.getLinks().size()];
-                    topoLinks = topoSlice.getLinks().toArray(topoLinks);
-                    linkManager.addLinks(topoLinks);
-                    logger.trace("******** Added links to the topology ***********");
-                } else {
-                    if (lock.getRetryCount() > 3) {
+			try {
+				//logger.trace("***** Executing worker thread *******");	
+            	if (lock == null) {
+            	    throw new GraphDBException (" ******* Exception, Unable to validate topology, lock is null ******* \n");
+            	}
+       
+            	if (lock.checkValidationStatus()) {
+					logger.trace("********* starting topology update ***********");
+					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
+					topoLinks = topoSlice.getLinks().toArray(topoLinks);
+					linkManager.addLinks(topoLinks);
+					logger.trace("******** Added links to the topology ***********");
+				} else {
+					if (lock.getRetryCount() > 3) {
 						throw new GraphDBException (" ******* Exception, Unable to validate topology ******* \n"+
 													"Not all validation packets reached the controller");
-                        //logger.debug("******* Exception, Unable to validate topology *******");
-                    }  else {
-                        lock.incrementRetryCount();
-                        ses.schedule(this, TOPOLOGY_UPDATE_INTERVAL_MS,
-                                    TimeUnit.MILLISECONDS);   
-                    }  
-                }
+                    	//logger.debug("******* Exception, Unable to validate topology *******");
+                	}  else {
+                    	lock.incrementRetryCount();
+                    	ses.schedule(this, TOPOLOGY_UPDATE_INTERVAL_MS,
+                        	         TimeUnit.MILLISECONDS);   
+                	}  
+            	}
             } catch (Exception e) {
                 logger.trace("got you!!!!!!!!! {}", e);
             }

@@ -57,7 +57,7 @@ public class TopoLock
 
     public boolean checkValidationStatus ()
     {
-	System.out.println("**** count= "+ verifiedCnt+", verifyCnt= "+ verifyCnt+"***");
+		System.out.println("**** count= "+ verifiedCnt+", verifyCnt= "+ verifyCnt+"***");
         return (verifyCnt == verifiedCnt);
     }
 
