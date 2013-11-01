@@ -711,10 +711,12 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                     bool = ((Entry<IPv4Address, Boolean>)set[indx]).getValue();
                     count++;
                 }
-                if (!bool.booleanValue())
+                if (!bool.booleanValue()) {
                     ip = null;
-                else
+                } else {
+					System.out.println(" destination IP flowspce is: "+ ip.toString());
                     ip = generateIP(ip);
+				}
             }
         }
 		if (ip != null)
@@ -987,10 +989,12 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                     bool = ((Entry<IPv4Address, Boolean>)set[indx]).getValue();
                     count++;
                 }
-                if (!bool.booleanValue())
+                if (!bool.booleanValue()) {
                     ip = null;
-                else
+                } else {
+					System.out.println("Source IP flowspce is: "+ ip.toString());
                     ip = generateIP(ip);
+				}
             }
         }
 		if (ip != null)
