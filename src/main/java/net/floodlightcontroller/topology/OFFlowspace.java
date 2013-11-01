@@ -1468,12 +1468,12 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                 if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 int srcIP = Integer.valueOf(tokens[0]);
-                flowspace.addNetworkSource(srcIP, (byte) (31 - maskEnd-maskStart));
+                flowspace.addNetworkSource(srcIP, (byte) (31 - (maskEnd-maskStart)));
         } else if (IP_DST_OFFSET.encloses(mask)) {
                 if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 int dstIP = Integer.valueOf(tokens[0]);
-                flowspace.addNetworkDestination(dstIP, (byte) (31 - maskEnd-maskStart));
+                flowspace.addNetworkDestination(dstIP, (byte) (31 - (maskEnd-maskStart)));
         } else if (TP_SRC_OFFSET.encloses(mask)) {
                 if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
