@@ -26,7 +26,7 @@ public class FlowspaceException extends Exception
         return (message);
     }
 
-    public String getMsg()
+    public String getMessage()
     {
         return (message);
     }

@@ -195,7 +195,7 @@ public abstract class ForwardingBase
      *        OFFlowMod.OFPFC_MODIFY etc.
      * @return srcSwitchIincluded True if the source switch is included in this route
      */
-    /*
+    
     @LogMessageDocs({
         @LogMessageDoc(level="WARN",
             message="Unable to push route, switch at DPID {dpid} not available",
@@ -306,7 +306,7 @@ public abstract class ForwardingBase
         }
 
         return srcSwitchIncluded;
-    }*/
+    }
 
     private Integer setActionOutputFlowMod (OFFlowMod fm,
                                             List<NodePortTuple> switchPortList,
