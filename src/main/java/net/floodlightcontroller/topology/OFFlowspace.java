@@ -717,6 +717,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                     ip = generateIP(ip);
             }
         }
+		if (ip != null)
+			System.out.println("Generated destination IP is: "+ ip.toString());
         return (ip);
     }
   
@@ -991,6 +993,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                     ip = generateIP(ip);
             }
         }
+		if (ip != null)
+			System.out.println("Generated source IP is: "+ ip.toString());
         return (ip);
     }
 
