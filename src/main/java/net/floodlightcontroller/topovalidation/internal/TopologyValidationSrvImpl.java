@@ -236,13 +236,14 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (pkt == null)
             return false;
 
-		//log.trace("Generated packet {}", pkt);
+		log.trace("Generated packet {}", pkt);
 
         po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
                                             .getMessage(OFType.PACKET_OUT);
-        po.setPacketData(pkt.serialize());
+		byte[] packetData = pkt.serialize();
+        po.setPacketData(packetData);
 
-        if (!pushFlowMod(po, dstSw, ruleTransTable, link.getDstPort()))
+        if (!pushFlowMod(Array.copyOf(packetData, packetData.length), dstSw, ruleTransTable, link.getDstPort()))
             return (false);
 
 		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), pkt);
@@ -611,7 +612,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     /**
      * Push flowmod
      */
-    public boolean pushFlowMod (OFPacketOut po,
+    public boolean pushFlowMod (byte[] packetData,//OFPacketOut po,
                                 IOFSwitch sw,
                                 Rules ruleTransTable,
                                 short inPort)
@@ -630,10 +631,10 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(action);
 
-		byte[] packetData = po.getPacketData();
+		//byte[] packetData = po.getPacketData();
 
 		if (ruleTransTable != null) {
-				packetData = ruleTransTable.getPacketHeader(packetData);
+			packetData = ruleTransTable.getPacketHeader(packetData);
 		}
 
         match.loadFromPacket(packetData, inPort);
@@ -666,6 +667,8 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                         fm.getMatch().getInputPort(),
                         OFPort.OFPP_CONTROLLER});
             }
+			
+			log.trace("Generated Flowmod: {}", fm);
             messageDamper.write(sw, fm, null);
             sw.flush();
             counterStore.updateFlush();

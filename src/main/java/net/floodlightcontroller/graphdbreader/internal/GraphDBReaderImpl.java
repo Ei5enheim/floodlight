@@ -336,7 +336,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                     (String)outNode.getProperty("Port") + " ----> {dstDpid = "+ headDpid +
                     ", dstPort = "+  (String)inNode.getProperty("Port"));*/
             link = new Link (tailDpid, tailSwitchPort.getPortId(),
-                    headDpid, headSwitchPort.getPortId());
+                    		headDpid, headSwitchPort.getPortId());
             links.add(link);	
 
 			if (e.getProperty("Rules") != null)	
