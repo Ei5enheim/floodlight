@@ -243,7 +243,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 		byte[] packetData = pkt.serialize();
         po.setPacketData(packetData);
 
-        if (!pushFlowMod(Array.copyOf(packetData, packetData.length), dstSw, ruleTransTable, link.getDstPort()))
+        if (!pushFlowMod(Arrays.copyOf(packetData, packetData.length), dstSw, ruleTransTable, link.getDstPort()))
             return (false);
 
 		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), pkt);
