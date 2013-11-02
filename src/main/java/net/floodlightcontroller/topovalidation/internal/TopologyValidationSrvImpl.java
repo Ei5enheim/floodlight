@@ -243,10 +243,16 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 		byte[] packetData = pkt.serialize();
         po.setPacketData(packetData);
 
-        if (!pushFlowMod(Arrays.copyOf(packetData, packetData.length), dstSw, ruleTransTable, link.getDstPort()))
+		byte[] clonePktData = Arrays.copyOf(packetData, packetData.length);
+
+        if (!pushFlowMod(clonePktData, dstSw, ruleTransTable, link.getDstPort()))
             return (false);
 
-		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), pkt);
+		IPacket clonePkt = new Ethernet().deserialize(clonePktData, 0, clonePktData.length);
+	
+		log.trace("cloned packet {}", clonePkt);
+
+		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), clonePkt);
 	
 		log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(), link.getDst());
 
