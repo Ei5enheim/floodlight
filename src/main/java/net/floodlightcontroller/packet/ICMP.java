@@ -162,11 +162,25 @@ public class ICMP extends BasePacket {
         this.icmpCode = bb.get();
         this.checksum = bb.getShort();
        
-	if (bb.limit()-bb.position() > 0) { 
-        	this.payload = new Data();
+		if (bb.limit()-bb.position() > 0) { 
+			this.payload = new Data();
         	this.payload = payload.deserialize(data, bb.position(), bb.limit()-bb.position());
         	this.payload.setParent(this);
-	}
+		}
+        bb.rewind();
+        int accumulation = 0;
+
+        for (int i = 0; i < length / 2; ++i) {
+            accumulation += 0xffff & bb.getShort();
+        }
+        // pad to an even number of shorts
+        if (length % 2 > 0) {
+            accumulation += (bb.get() & 0xff) << 8;
+        }
+
+        accumulation = ((accumulation >> 16) & 0xffff)
+        		       + (accumulation & 0xffff);
+        this.checksum = (short) (~accumulation & 0xffff);
         return this;
     }
 }

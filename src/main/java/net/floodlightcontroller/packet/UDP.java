@@ -224,10 +224,36 @@ public class UDP extends BasePacket {
         } else {
             this.payload = new Data();
         }
-	if (bb.limit() - bb.position() > 0) {
+        if (bb.limit() - bb.position() > 0) {
         	this.payload = payload.deserialize(data, bb.position(), bb.limit()-bb.position());
         	this.payload.setParent(this);
-	}
+	    }
+
+        bb.rewind();
+        int accumulation = 0;
+
+        // compute pseudo header mac
+        if (this.parent != null && this.parent instanceof IPv4) {
+            IPv4 ipv4 = (IPv4) this.parent;
+            accumulation += ((ipv4.getSourceAddress() >> 16) & 0xffff)
+                            + (ipv4.getSourceAddress() & 0xffff);
+            accumulation += ((ipv4.getDestinationAddress() >> 16) & 0xffff)
+                            + (ipv4.getDestinationAddress() & 0xffff);
+            accumulation += ipv4.getProtocol() & 0xff;
+            accumulation += this.length & 0xffff;
+        }
+
+        for (int i = 0; i < this.length / 2; ++i) {
+            accumulation += 0xffff & bb.getShort();
+        }
+        // pad to an even number of shorts
+        if (this.length % 2 > 0) {
+            accumulation += (bb.get() & 0xff) << 8;
+        }
+
+        accumulation = ((accumulation >> 16) & 0xffff)
+                    + (accumulation & 0xffff);
+        this.checksum = (short) (~accumulation & 0xffff);
         return this;
     }
 }

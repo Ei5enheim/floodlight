@@ -288,11 +288,35 @@ public class TCP extends BasePacket {
         }
         
         int remLength = bb.limit()-bb.position();
-	if (remLength > 0) {
-		this.payload = new Data();
+		if (remLength > 0) {
+			this.payload = new Data();
         	this.payload = payload.deserialize(data, bb.position(), remLength);
        	 	this.payload.setParent(this);
-	}
+		}
+        bb.rewind();
+        int accumulation = 0;
+        // compute pseudo header mac
+        if (this.parent != null && this.parent instanceof IPv4) {
+			IPv4 ipv4 = (IPv4) this.parent;
+			accumulation += ((ipv4.getSourceAddress() >> 16) & 0xffff)
+							+ (ipv4.getSourceAddress() & 0xffff);
+			accumulation += ((ipv4.getDestinationAddress() >> 16) & 0xffff)
+		                      + (ipv4.getDestinationAddress() & 0xffff);
+			accumulation += ipv4.getProtocol() & 0xff;
+            accumulation += length & 0xffff;
+       	}
+
+        for (int i = 0; i < length / 2; ++i) {
+			accumulation += 0xffff & bb.getShort();
+		}
+		// pad to an even number of shorts
+		if (length % 2 > 0) {
+			accumulation += (bb.get() & 0xff) << 8;
+		}
+		
+		accumulation = ((accumulation >> 16) & 0xffff)
+						+ (accumulation & 0xffff);
+		this.checksum = (short) (~accumulation & 0xffff);
         return this;
     }
 }

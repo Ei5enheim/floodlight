@@ -375,10 +375,20 @@ public class IPv4 extends BasePacket {
         int remLength = bb.limit()-bb.position();
         if (remLength < payloadLength)
             payloadLength = bb.limit()-bb.position();
-	if (payloadLength > 0) {
+		
+		if (payloadLength > 0) {
         	this.payload = payload.deserialize(data, bb.position(), payloadLength);
         	this.payload.setParent(this);
-	}
+		}
+
+		bb.rewind();
+		int accumulation = 0;
+		for (int i = 0; i < this.headerLength * 2; ++i) {
+			accumulation += 0xffff & bb.getShort();
+		}
+		accumulation = ((accumulation >> 16) & 0xffff)
+							+ (accumulation & 0xffff);
+		this.checksum = (short) (~accumulation & 0xffff);
 
         if (this.totalLength > length)
             this.isTruncated = true;
