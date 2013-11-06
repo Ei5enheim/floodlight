@@ -17,6 +17,7 @@ import net.floodlightcontroller.graphdbreader.IGraphDBRequest;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 import org.renci.doe.pharos.flow.Rules;
 
@@ -27,4 +28,11 @@ public interface IGraphDBRequest
     public Map <Link, Rules> getRuleTransTables();
     public List<Link> getLinks();
 	public Set<Long> getSwitches();
+    public void setDomainMapper (Map <Long, String> domainMapper);
+    public void setDomainFlowspace (Map <NodePortTuple, IOFFlowspace[]> flowspace);
+    public void setRuleTransTables(Map <Link, Rules> table);
+    public void setLinks(List<Link> links);
+	public void setSwitches(Set<Long> switches);
+	public void setDelegatedMAC(DelegatedMAC mac);
+	public DelegatedMAC getDelegatedMAC();
 }

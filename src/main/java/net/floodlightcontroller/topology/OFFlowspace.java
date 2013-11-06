@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Hashtable;
@@ -25,6 +26,7 @@ import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.util.IPv4Address;
 import net.floodlightcontroller.util.Vlan;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 import org.openflow.util.HexString;
 
@@ -33,8 +35,11 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     // If any of the macs' are blocked then we can place them
     // into the hash table. False represents it is blocked while
     // true/null represents it is allowed. 
-    protected Map<Long, Boolean> dataLayerSource;
-    protected Map<Long, Boolean> dataLayerDestination;
+    //TODO  need to make the additions and removals synchronized
+    protected List<DelegatedMAC> dataLayerSource;
+	protected List<DelegatedMAC> blockedDataLayerSource;
+	protected List<DelegatedMAC> dataLayerDestination;
+	protected List<DelegatedMAC> blockedDataLayerDestination;
     protected SortedMap<Vlan, Boolean> dataLayerVlan;
     // each bit position refers to the actual value
     protected byte dataLayerVlanPCP;
@@ -44,9 +49,9 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     protected long networkTOS = 1;
     protected Map<Short, Boolean> networkProtocol;
     protected Map<IPv4Address, Boolean> networkSource;
-    protected int networkSourceMask;
+    protected int networkSourceMask = 0x0FFFFFFF;
     protected Map<IPv4Address, Boolean> networkDestination;
-    protected int networkDestinationMask;
+    protected int networkDestinationMask = 0x0FFFFFFF;;
     protected Map<Short, Boolean> transportSource;
     protected Map<Short, Boolean> transportDestination;
     private boolean isSparse = true;
@@ -67,6 +72,10 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
      */
     public OFFlowspace(boolean dummy)
     {
+		this.dataLayerSource = new ArrayList<DelegatedMAC> ();
+		this.blockedDataLayerSource = new ArrayList<DelegatedMAC>();
+		this.dataLayerDestination = new ArrayList<DelegatedMAC>();
+		this.blockedDataLayerDestination = new ArrayList<DelegatedMAC>();
         this.dataLayerVlan = new TreeMap<Vlan, Boolean>();
         this.dataLayerVlan = Collections.synchronizedSortedMap(dataLayerVlan);
         this.dataLayerType = new Hashtable<Short, Boolean>();
@@ -95,6 +104,32 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         this.isSparse = isSparse;
     }
 
+	private Long getMACAddress(DelegatedMAC mac, boolean isSrc)
+	{
+		long baseAddress = mac.getBaseAddress();
+		int start = mac.getStart();
+		int end = mac.getEnd();
+		
+		if (end < start)
+			return Long.valueOf(baseAddress);
+
+		long mask = ~((0x1L << end+1) - 0x1L) | ((0x1L << start) - 0x1L);
+		mask = ~mask;
+
+		baseAddress = baseAddress & mask;
+		long rndmValue = ThreadLocalRandom.current().nextLong(0, (1 << (end-start+1)));
+		rndmValue = rndmValue << start;
+		baseAddress = baseAddress | rndmValue;
+		if (isSrc) {
+			if (blockedDataLayerSource.contains(baseAddress))
+				return null;
+		} else {
+			if (blockedDataLayerDestination.contains(baseAddress))
+				return null;
+		}
+		return (Long.valueOf(baseAddress));
+	}
+
     /**
      * Get dl_dst
      * 
@@ -106,41 +141,44 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         int MAX_TRIES = 5;
         int count = 0;
         if (dataLayerDestination != null) {
-            /*
-            if (dataLayerDestination.values.contains(Boolean.valueOf("false")))
-                return (null);
-            */
             int indx = 0;
             int boundary = dataLayerDestination.size();
+			if (boundary == 0)
+				return null;
             synchronized (dataLayerDestination) {
-                Object[] set = dataLayerDestination.entrySet().toArray();
                 indx = ThreadLocalRandom.current().nextInt(0, boundary);
-                Boolean bool = ((Entry<Long, Boolean>)set[indx]).getValue();
-                mac = ((Entry<Long, Boolean>)set[indx]).getKey();
-                while ((!bool.booleanValue()) && (count < 5)) {
-                    indx = ThreadLocalRandom.current().nextInt(0, boundary);
-                    mac = ((Entry<Long, Boolean>)set[indx]).getKey();
-                    bool = ((Entry<Long, Boolean>)set[indx]).getValue();
+                DelegatedMAC macAddr = dataLayerDestination.get(indx);
+                while (((mac = getMACAddress(macAddr, false)) == null) && (count < 5)) {
+                	indx = ThreadLocalRandom.current().nextInt(0, boundary);
+                	macAddr = dataLayerDestination.get(indx);
                     count++;
                 }
-                if (!bool.booleanValue())
-                    mac = null;
             }
         }
         return (mac);
     }
 
+	public List<DelegatedMAC> getDataLayerDst()
+	{
+		return this.dataLayerDestination;
+	}
+
+
+	public List<DelegatedMAC> getBlockedDataLayerDst()
+	{
+		return this.blockedDataLayerDestination;
+	}
+
     public boolean verifyDataLayerDst (long mac)
     {
         if (dataLayerDestination != null) {
-            Boolean isValied = dataLayerDestination.get(mac);
-            if (isValied != null)
-                return (isValied.booleanValue());
+			if (blockedDataLayerDestination.contains(new DelegatedMAC(mac)))
+				return false;
         }
         return (true);
     }
 
-    public IOFFlowspace setDataLayerDst (Map<Long, Boolean> dataLayerDst)
+    public IOFFlowspace setDataLayerDst (List<DelegatedMAC> dataLayerDst)
     {
         this.dataLayerDestination = dataLayerDst;
         return this;
@@ -148,10 +186,34 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 
     private void addDataLayerDst (long macAddress, Boolean bool)
     {
-        if (dataLayerDestination == null)
-            dataLayerDestination = new Hashtable<Long, Boolean>();
 
-        dataLayerDestination.put(macAddress, bool);
+		if (bool) {
+        	if (dataLayerDestination == null)
+            	dataLayerDestination = new ArrayList<DelegatedMAC>();
+			dataLayerDestination.add(new DelegatedMAC(macAddress));
+		} else {
+        	if (blockedDataLayerDestination == null)
+            	blockedDataLayerDestination = new ArrayList<DelegatedMAC>();
+
+			blockedDataLayerDestination.add(new DelegatedMAC(macAddress));
+		}
+      
+    }
+
+    private void addDataLayerDst (DelegatedMAC macAddress, Boolean bool)
+    {
+
+		if (bool) {
+        	if (dataLayerDestination == null)
+            	dataLayerDestination = new ArrayList<DelegatedMAC>();
+			dataLayerDestination.add(macAddress);
+		} else {
+        	if (blockedDataLayerDestination == null)
+            	blockedDataLayerDestination = new ArrayList<DelegatedMAC>();
+
+			blockedDataLayerDestination.add(macAddress);
+		}
+      
     }
 
     /**
@@ -162,6 +224,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace addDataLayerDst (long macAddress)
     {
         addDataLayerDst(macAddress, Boolean.valueOf(true));
+        return (this);
+    }
+
+    public IOFFlowspace addDataLayerDst (long macAddress, int start, int end)
+    {
+        addDataLayerDst(new DelegatedMAC(macAddress, start, end), 
+										Boolean.valueOf(true));
         return (this);
     }
 
@@ -179,6 +248,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         return (this);
     }
 
+    public IOFFlowspace blockDataLayerDst (long macAddress, int start, int end)
+    {
+        addDataLayerDst(new DelegatedMAC(macAddress, start, end),
+										 Boolean.valueOf(false));
+        return (this);
+    }
+
     public IOFFlowspace blockDataLayerDst(byte[] macAddress)
     {
         addDataLayerDst(byteArray2Long(macAddress),
@@ -190,6 +266,22 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     {
         if (dataLayerDestination != null) {
             dataLayerDestination.remove(macAddress);
+        }
+
+		if (blockedDataLayerDestination != null) {
+            blockedDataLayerDestination.remove(macAddress);
+        }
+        return (this);
+    }
+
+    public IOFFlowspace removeDataLayerDst (long macAddress, int start, int end)
+    {
+        if (dataLayerDestination != null) {
+            dataLayerDestination.remove(new DelegatedMAC(macAddress, start, end));
+        }
+
+		if (blockedDataLayerDestination != null) {
+            blockedDataLayerDestination.remove(new DelegatedMAC(macAddress, start, end));
         }
         return (this);
     }
@@ -233,18 +325,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
             int indx = 0;
             int boundary = dataLayerSource.size();
             synchronized (dataLayerSource) {
-                Object[] set = dataLayerSource.entrySet().toArray();
                 indx = ThreadLocalRandom.current().nextInt(0, boundary);
-                Boolean bool = ((Entry<Long, Boolean>)set[indx]).getValue();
-                mac = ((Entry<Long, Boolean>)set[indx]).getKey();
-                while ((!bool.booleanValue()) && (count < MAX_TRIES)) {
-                    indx = ThreadLocalRandom.current().nextInt(0, boundary);
-                    mac = ((Entry<Long, Boolean>)set[indx]).getKey();
-                    bool = ((Entry<Long, Boolean>)set[indx]).getValue();
+                DelegatedMAC macAddr = dataLayerSource.get(indx);
+                while (((mac = getMACAddress(macAddr, true)) == null) && (count < 5)) {
+                	indx = ThreadLocalRandom.current().nextInt(0, boundary);
+                	macAddr = dataLayerSource.get(indx);
                     count++;
                 }
-                if (!bool.booleanValue())
-                    mac = null;
             }
         }
         return (mac);
@@ -252,20 +339,30 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 
     public boolean verifyDataLayerSrc (long mac)
     {
-        if (dataLayerSource != null) {
-            Boolean isValied = dataLayerSource.get(mac);
-            if (isValied != null)
-                return (isValied.booleanValue());
+        if (blockedDataLayerSource != null) {
+			if (blockedDataLayerSource.contains(new DelegatedMAC(mac)))
+				return (false);
         }
         return (true);
     }
+
+	public List<DelegatedMAC> getDataLayerSrc()
+	{
+		return this.dataLayerSource;
+	}
+
+
+	public List<DelegatedMAC> getBlockedDataLayerSrc()
+	{
+		return this.blockedDataLayerSource;
+	}
 
     /**
      * Set dl_src
      * 
      * @param dataLayerSource
      */
-    public IOFFlowspace setDataLayerSrc (Map<Long, Boolean> dataLayerSource)
+    public IOFFlowspace setDataLayerSrc (List<DelegatedMAC> dataLayerSource)
     {
         this.dataLayerSource = dataLayerSource;
         return this;
@@ -273,10 +370,30 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 
     private void addDataLayerSrc (long macAddress, Boolean bool)
     {
-        if (this.dataLayerSource == null)
-            this.dataLayerSource = new Hashtable<Long, Boolean>();
+		if (bool) {
+        	if (this.dataLayerSource == null)
+            	this.dataLayerSource = new ArrayList<DelegatedMAC>();
+			this.dataLayerSource.add(new DelegatedMAC(macAddress));
+		} else {
+        	if (this.blockedDataLayerSource == null)
+            	this.blockedDataLayerSource = new ArrayList<DelegatedMAC>();
+			this.blockedDataLayerSource.add(new DelegatedMAC(macAddress));
 
-        this.dataLayerSource.put(macAddress, bool);
+		}
+    }
+
+    private void addDataLayerSrc (DelegatedMAC macAddress, Boolean bool)
+    {
+		if (bool) {
+        	if (this.dataLayerSource == null)
+            	this.dataLayerSource = new ArrayList<DelegatedMAC>();
+			this.dataLayerSource.add(macAddress);
+		} else {
+        	if (this.blockedDataLayerSource == null)
+            	this.blockedDataLayerSource = new ArrayList<DelegatedMAC>();
+			this.blockedDataLayerSource.add(macAddress);
+
+		}
     }
 
     /**
@@ -287,6 +404,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace addDataLayerSrc (long macAddress)
     {
         this.addDataLayerSrc(macAddress, Boolean.valueOf("true"));
+        return this;
+    }
+
+    public IOFFlowspace addDataLayerSrc (long macAddress, int start, int end)
+    {
+        this.addDataLayerSrc(new DelegatedMAC(macAddress, start, end),
+								Boolean.valueOf("true"));
         return this;
     }
 
@@ -303,6 +427,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         return this;
     }
 
+	public IOFFlowspace blockDataLayerSrc (long macAddress, int start, int end)
+    {
+        this.addDataLayerSrc(new DelegatedMAC(macAddress, start, end),
+								Boolean.valueOf("false"));
+        return this;
+    }
+
     public IOFFlowspace blockDataLayerSrc (byte[] macAddress)
     {
         this.addDataLayerSrc(byteArray2Long(macAddress),
@@ -312,8 +443,21 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 
     public IOFFlowspace removeDataLayerSrc (long macAddress)
     {
-        if (dataLayerSource != null)
-            dataLayerSource.remove (macAddress);
+        if (dataLayerSource != null) {
+            dataLayerSource.remove (new DelegatedMAC(macAddress));
+		} else if (blockedDataLayerSource != null) {
+			blockedDataLayerSource.remove (new DelegatedMAC(macAddress));
+		}
+        return this;
+    }
+
+    public IOFFlowspace removeDataLayerSrc (long macAddress, int start, int end)
+    {
+        if (dataLayerSource != null) {
+            dataLayerSource.remove (new DelegatedMAC(macAddress, start, end));
+		} else if (blockedDataLayerSource != null) {
+			blockedDataLayerSource.remove (new DelegatedMAC(macAddress, start, end));
+		}
         return this;
     }
 
@@ -668,19 +812,19 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 
     private IPv4Address generateIP (IPv4Address ip)
     {
-        int rndmIP = ThreadLocalRandom.current().nextInt(0, 0x0FFFFFFF);
+        int rndmIP = ThreadLocalRandom.current().nextInt(0, 0x7FFFFFFF);
         int rndmMask = 0xFFFFFFFF;
         int IP = ip.getIP();
         IPv4Address newIP = new IPv4Address();
 
-        if (ip.getMask() == (byte) 32) {
+        /*if (ip.getMask() == (byte) 32) {
             newIP.setIP(rndmIP);
-        } else {
-            rndmMask = rndmMask << ip.getMask();
-            rndmMask = ~rndmMask;
-            rndmIP = rndmIP & rndmMask;
-            newIP.setIP(IP | rndmIP); 
-        }
+        } else {*/
+        rndmMask = rndmMask << ip.getMask();
+        rndmMask = ~rndmMask;
+        rndmIP = rndmIP & rndmMask;
+        newIP.setIP(IP | rndmIP); 
+        //}
         return (newIP);
     }
 
@@ -727,11 +871,11 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public boolean verifyNetworkDestination (IPv4Address ip)
     {
         if (networkDestination != null)
-            return (getNetworkDestination(ip, true));
+            return (verifyNetworkDestination(ip, true));
         return (isSparse);
     }
 
-    private boolean getNetworkDestination (IPv4Address ip, boolean dummy)
+    private boolean verifyNetworkDestination (IPv4Address ip, boolean dummy)
     {
         boolean[] int2Bool = {false, true};
         int mask = networkDestinationMask;
@@ -778,7 +922,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     {
         if (networkDestination != null) {
             IPv4Address ipv4 = new IPv4Address(ip);
-            return (getNetworkDestination(ipv4, true));        
+            return (verifyNetworkDestination(ipv4, true));        
         }
         return (isSparse);
     }
@@ -789,9 +933,10 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
      * @param networkDestination
      */
     public IOFFlowspace setNetworkDestination (Map<IPv4Address,
-                                            Boolean> networkDestination)
+                                                Boolean> networkDestination)
     {
         this.networkDestination = networkDestination;
+        this.networkDestinationMask = 0x01; 
         return this;
     }
 
@@ -800,6 +945,9 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     {
         if (networkDestination == null)
             this.networkDestination = new HashMap<IPv4Address, Boolean>();
+
+        if (networkDestinationMask > ip.getMask())
+            networkDestinationMask = ip.getMask();
 
         this.networkDestination.put(ip, Boolean.valueOf(bool));
         return (this);
@@ -813,6 +961,10 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace addNetworkDestination (int networkAddress, byte mask)
     {   
         IPv4Address ip = new IPv4Address (networkAddress, mask);
+
+        if (networkDestinationMask > mask)
+            networkDestinationMask = mask;
+
         this.addNetworkDestination(ip, true);
         return this;
     }
@@ -825,6 +977,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace addNetworkDestination (IPv4Address ip)
     {
         addNetworkDestination(ip, true);
+        if (networkDestinationMask > ip.getMask())
+            networkDestinationMask = ip.getMask();
         return this;
     }
 
@@ -836,6 +990,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace blockNetworkDestination (int networkAddress, byte mask)
     {
         IPv4Address ip = new IPv4Address (networkAddress, mask);
+        if (networkDestinationMask > mask)
+            networkDestinationMask = mask;
 
         this.addNetworkDestination(ip, false);
         return this;
@@ -849,6 +1005,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace blockNetworkDestination (IPv4Address ip)
     {
         addNetworkDestination(ip, false);
+        if (networkDestinationMask > ip.getMask())
+            networkDestinationMask = ip.getMask();
         return this;
     }
 
@@ -1010,11 +1168,11 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public boolean verifyNetworkSource (IPv4Address ip)
     {
         if (networkSource != null)
-            return (getNetworkSource(ip, true));
+            return (verifyNetworkSource(ip, true));
         return (isSparse);
     }
 
-    private boolean getNetworkSource (IPv4Address ip, boolean dummy)
+    private boolean verifyNetworkSource (IPv4Address ip, boolean dummy)
     {
         boolean[] int2Bool = {false, true};
         int mask = networkSourceMask;
@@ -1043,7 +1201,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     {
         if (networkSource != null) {
             IPv4Address ipv4 = new IPv4Address(ip);
-            return (getNetworkSource(ipv4, true));        
+            return (verifyNetworkSource(ipv4, true));        
         }
         return (isSparse);
     }
@@ -1057,6 +1215,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                                                 Boolean> networkSource)
     {
         this.networkSource = networkSource;
+        this.networkSourceMask = 0x01;
         return this;
     }
 
@@ -1065,6 +1224,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         if (networkSource == null)
             this.networkSource = new HashMap<IPv4Address, Boolean>();
 
+        if (networkSourceMask > ip.getMask())
+            networkSourceMask = ip.getMask();
         this.networkSource.put(ip, Boolean.valueOf(bool));
         return (this);
     }
@@ -1078,6 +1239,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     {   
         IPv4Address ip = new IPv4Address (networkAddress, mask);
 
+        if (networkSourceMask > mask)
+            networkSourceMask = mask;
         this.addNetworkSource(ip, true);
         return this;
     }
@@ -1090,6 +1253,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace addNetworkSource (IPv4Address ip)
     {
         addNetworkSource(ip, true);
+        if (networkSourceMask > ip.getMask())
+            networkSourceMask = ip.getMask();
         return this;
     }
 
@@ -1101,7 +1266,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace blockNetworkSource (int networkAddress, byte mask)
     {
         IPv4Address ip = new IPv4Address (networkAddress, mask);
-
+        if (networkSourceMask > mask)
+            networkSourceMask = mask;
         this.addNetworkSource(ip, false);
         return this;
     }
@@ -1114,6 +1280,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace blockNetworkSource (IPv4Address ip)
     {
         addNetworkSource(ip, false);
+        if (networkSourceMask > ip.getMask())
+            networkSourceMask = ip.getMask();
         return this;
     }
 
@@ -1128,6 +1296,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public IOFFlowspace removeNetworkSource (int ip, byte range)
     {
         IPv4Address ipv4 = new IPv4Address(ip, range);
+
         removeNetworkSource(ipv4);
         return (this);
     }
@@ -1446,40 +1615,67 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         int maskEnd = Integer.valueOf(maskSubStr[1]);
 
         Range<Integer> mask = Range.closed(maskStart, maskEnd);
+
+		if (SRC_MAC_OFFSET.encloses(mask)) {
+			if (tokens[0].indexOf('-') > -1)
+				throw new FlowspaceException("Invalid flowspace");
+			String srcMAC = tokens[0].trim();
+			flowspace.addDataLayerSrc(Long.parseLong(srcMAC) & 0x0FFFFFFFFFFFFL, maskStart, maskEnd);
+		} else if (DST_MAC_OFFSET.encloses(mask)) {
+			if (tokens[0].indexOf('-') > -1)
+				throw new FlowspaceException("Invalid flowspace");
+			String dstMAC = tokens[0].trim();
+			flowspace.addDataLayerDst(Long.parseLong(dstMAC) & 0x0FFFFFFFFFFFFL, maskStart-48, maskEnd-48);
         
-        if (VLAN_OFFSET.encloses(mask)) {
+        } else if (VLAN_OFFSET.encloses(mask)) {
             range = tokens[0].split("[ ]*-[ ]*");
             short vlanStart = Short.valueOf(range[0]);
             short vlanEnd = vlanStart;
-            if (tokens[0].indexOf('-') > 0)
+            if (tokens[0].indexOf('-') > -1)
                 vlanEnd = Short.valueOf(range[1]);
             if (vlanEnd < vlanStart)
                 throw new FlowspaceException("Invalid flowspace");
             flowspace.addDataLayerVlan(vlanStart, (short) (vlanEnd - vlanStart)); 
         } else if (ETHERTYPE_OFFSET.encloses(mask)) {
-                if (tokens[0].indexOf('-') > 0)
-                    throw new FlowspaceException("Invalid flowspace formart encountered");
-                flowspace.addDataLayerType(Short.valueOf(tokens[0]));
+			if (tokens[0].matches("-[0-9]+[ ]*-[ ]*-[0-9]+")) {
+				range = new String[2];
+				int splitIndx = tokens[0].indexOf('-', 1);
+				range[0] = tokens[0].substring(0, splitIndx).trim();
+				range[1] = tokens[0].substring(splitIndx+1, tokens[0].length()).trim(); 
+			} else if (tokens[0].matches("-[0-9]+")) {
+				range = new String[1];
+				range[0] = tokens[0]; 
+			} else {
+				range=tokens[0].split(delims);
+			}
+
+			if (range.length==1){
+				flowspace.addDataLayerType((short)Integer.parseInt(tokens[0].trim()));
+			} else if(range.length==2){
+				// will take care of this later
+			}
         } else if (NWPROTO_OFFSET.encloses(mask)){
-                if (tokens[0].indexOf('-') > 0)
+                if (tokens[0].indexOf('-') > -1)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 flowspace.addNetworkProtocol(Short.valueOf(tokens[0]));
         } else if (IP_SRC_OFFSET.encloses(mask)) {
                 if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 int srcIP = Integer.valueOf(tokens[0]);
-                flowspace.addNetworkSource(srcIP, (byte) (31 - (maskEnd-maskStart)));
+				byte ofMask = (byte) (31 - (maskEnd-maskStart));
+                flowspace.addNetworkSource(srcIP << ofMask, ofMask);
         } else if (IP_DST_OFFSET.encloses(mask)) {
                 if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 int dstIP = Integer.valueOf(tokens[0]);
-                flowspace.addNetworkDestination(dstIP, (byte) (31 - (maskEnd-maskStart)));
+				byte ofMask = (byte) (31 - (maskEnd-maskStart));
+                flowspace.addNetworkDestination(dstIP << ofMask, ofMask);
         } else if (TP_SRC_OFFSET.encloses(mask)) {
-                if (tokens[0].indexOf('-') > 0)
+                if (tokens[0].indexOf('-') > -1)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 flowspace.addTPSrc(Short.valueOf(tokens[0]));
         } else if (TP_DST_OFFSET.encloses(mask)) {
-                if (tokens[0].indexOf('-') > 0)
+                if (tokens[0].indexOf('-') > -1)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 flowspace.addTPDst(Short.valueOf(tokens[0]));
         } else {

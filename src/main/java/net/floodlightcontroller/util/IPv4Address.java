@@ -28,7 +28,7 @@ public class IPv4Address
     public IPv4Address (int IP, byte mask)
     {
         this.ip = IP;
-	if (mask <= 32)
+		if (mask <= 32)
             this.mask = mask;
     }
 
@@ -44,10 +44,10 @@ public class IPv4Address
 
     public void setMask(byte mask)
     {
-	if (mask <= 32)
-	   this.mask = mask;
-	else
-	   this.mask = (byte) 32;
+		if (mask <= 32)
+	   		this.mask = mask;
+		else
+	   		this.mask = (byte) 32;
     }
 
     public void setIP (int ip)
@@ -57,12 +57,12 @@ public class IPv4Address
 
     public int getCidrMask()
     {
-	int cidrMask = 0xFFFFFFFF;
+		int cidrMask = 0xFFFFFFFF;
 
-	if (mask == 32)
-		return (0);
+		if (mask == 32)
+			return (0);
 
-	return (cidrMask << mask);
+		return (cidrMask << mask);
     }
 
     public static int getCidrMask(byte mask)

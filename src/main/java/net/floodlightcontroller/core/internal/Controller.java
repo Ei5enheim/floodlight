@@ -69,6 +69,7 @@ import net.floodlightcontroller.storage.IStorageSourceService;
 import net.floodlightcontroller.storage.StorageException;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.util.LoadMonitor;
+import net.floodlightcontroller.util.DelegatedMAC;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.routing.Link;
@@ -225,6 +226,8 @@ public class Controller implements IFloodlightProviderService,
     protected final boolean overload_drop =
         Boolean.parseBoolean(System.getProperty("overload_drop", "false"));
     protected final LoadMonitor loadmonitor = new LoadMonitor(log);
+
+    protected DelegatedMAC delegatedMAC; 
 
     protected Map<NodePortTuple, IOFFlowspace[]> flowspace;
 
@@ -1462,7 +1465,11 @@ public class Controller implements IFloodlightProviderService,
     // need to modify these to merge two flowspaces
     public void addFlowspace (Map<NodePortTuple, IOFFlowspace[]> flowspace)
     {
-        this.flowspace = flowspace;
+        if (this.flowspace == null) {
+            this.flowspace = flowspace;
+        } else {
+            this.flowspace.putAll(flowspace);
+        }
 
         if (ports2BUpdated && (flowspace != null)) {
             for (IOFSwitch sw: activeSwitches.values()) {
@@ -1488,7 +1495,11 @@ public class Controller implements IFloodlightProviderService,
 
     public void addRuleTransTables (Map<Link, Rules> ruleTransTables)
     {
-        this.ruleTransTables = ruleTransTables;
+        if (this.ruleTransTables == null) {
+            this.ruleTransTables = ruleTransTables;
+        } else {
+            this.ruleTransTables.putAll(ruleTransTables);
+        }
     }
 
     public void removeRuleTransTables ()
@@ -1511,17 +1522,21 @@ public class Controller implements IFloodlightProviderService,
 
     public void addDomainMapper (Map<Long, String> domainMapper)
     {
-	this.domainMapper = domainMapper;
+        if (this.domainMapper == null) {
+	        this.domainMapper = domainMapper;
+        } else {
+            this.domainMapper.putAll(domainMapper);
+        }
     }
 
     public void removeDomainMapper ()
     {
-	this.domainMapper = null;
+        this.domainMapper = null;
     }
 
     public String getSwDomain (long dpid)
     {
-	return (domainMapper.get(dpid));
+        return (domainMapper.get(dpid));
     }
 
 
@@ -2130,5 +2145,5 @@ public class Controller implements IFloodlightProviderService,
 		
 		return (false);
     }
-
+       
 }

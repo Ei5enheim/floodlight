@@ -38,6 +38,7 @@ import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.OFMessageDamper;
 import net.floodlightcontroller.util.TimedCache;
+import net.floodlightcontroller.util.DelegatedMAC;
 import net.floodlightcontroller.keyvaluestore.IKeyValueStoreService;
 
 import org.openflow.protocol.OFType;
@@ -143,7 +144,19 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     public void addedSwitch (IOFSwitch sw)
     {
         long dpID = sw.getId();
-        CircuitIDGen obj = new CircuitIDGen(dpID); 
+        synchronized (unInitializedSws) {
+            unInitializedSws.add(dpID);
+        }
+        /*CircuitIDGen obj;
+        
+        if (delegatedSrcMAC != null) {
+            obj = new CircuitIDGen(delegatedSrcMAC.getBaseAddress(),
+                                    delegatedSrcMAC.getStart(),
+                                    delegatedSrcMAC.getEnd());
+
+        } else {
+            obj = new CircuitIDGen(dpID); 
+        }
 
         if (obj == null) {
             if (logger.isDebugEnabled())
@@ -154,7 +167,8 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                          + "of memory. switch DPID {}", dpID); 
             return;
         } 
-        activeSwitches.put(dpID, obj); 
+        activeSwitches.put(dpID, obj);
+        */
     }
 
     // we can safely remove the switch without
@@ -170,12 +184,48 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             else
                 logger.info("No circuitIDGen object found for "
                          + "switch {}", dpID);
-        }      
+        } 
+        synchronized (unInitializedSws) {
+            unInitializedSws.remove(dpID);
+        }     
     }
   
     // leave it for now 
     public void switchPortChanged (java.lang.Long switchId) 
     {
+
+    }
+
+    // Utility method
+
+    public void initCircuitIDGens () 
+    {
+        if (!unInitializedSws.isEmpty()) {
+            DelegatedMAC mac = null;
+            if (delegatedSrcMAC != null) {
+                mac = delegatedSrcMAC;
+            } else {
+                logger.trace("****** DelegatedSrcMAC is null ******");
+                return;
+            }
+            long baseAddress = mac.getBaseAddress();
+            int startBit = mac.getStart();
+            int endBit = mac.getEnd();
+            List<Long> switches = null;
+            synchronized (unInitializedSws) {
+                switches = new ArrayList(unInitializedSws);
+            }
+            for (Long dpid: switches) {
+                //TODO need to revisit this
+                activeSwitches.put(dpid, new CircuitIDGen(baseAddress,
+                                                            startBit, endBit));     
+            }
+            synchronized (unInitializedSws) {
+                unInitializedSws.removeAll(switches);
+            }
+        } else {
+            logger.trace("****** active switches is null ******");
+        }
 
     }
 
@@ -1003,6 +1053,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 EnumSet.of(OFType.FLOW_MOD),
                 OFMESSAGE_DAMPER_TIMEOUT);
         activeSwitches = new ConcurrentHashMap<Long, CircuitIDGen>();
+        unInitializedSws = new ArrayList<Long>();
     } 
 
     public void startUp()
@@ -1013,20 +1064,17 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     }
 
 
-    public void setDelegatedSrcMAC (long delegatedSrcMAC, int start, int end)
+    public void setDelegatedSrcMAC (DelegatedMAC mac)
     {
-        this.delegatedSrcMAC = delegatedSrcMAC;
-        this.startBit = start;
-        this.endBit = end;
+        this.delegatedSrcMAC = mac;
     }
 
     protected String PathIDStoreName;
-    private Long delegatedSrcMAC;
-    private int startBit;
-    private int endBit;
+    private DelegatedMAC delegatedSrcMAC;
     private final long ISSRCROOTED_MSK = 0x1L;
     private final long DPID_MSK = 0x0000FFFFFFFFFFFFL;
     private final long LAdminMAC_MSK = 0x0000020000000000L;
     private final long UCAST_MSK = 0xFFFFFEFFFFFFFFFFL;
     protected ConcurrentHashMap<Long, CircuitIDGen> activeSwitches;
+    protected List<Long> unInitializedSws;
 }

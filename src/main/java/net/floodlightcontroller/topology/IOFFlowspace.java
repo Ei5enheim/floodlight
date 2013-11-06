@@ -5,11 +5,14 @@
 
 package net.floodlightcontroller.topology;
 
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.SortedMap;
 
 import net.floodlightcontroller.util.Vlan;
 import net.floodlightcontroller.util.IPv4Address;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 public interface IOFFlowspace
 {
@@ -73,25 +76,36 @@ public interface IOFFlowspace
     public void setFlowSpaceType (boolean isSparse);
     public Long getRandomDataLayerDst ();
     public boolean verifyDataLayerDst (long mac);
-    public IOFFlowspace setDataLayerDst (Map<Long, Boolean> dataLayerDst);
+    public IOFFlowspace setDataLayerDst (List<DelegatedMAC> dataLayerDst);
     public IOFFlowspace addDataLayerDst (long macAddress);
+	public IOFFlowspace addDataLayerDst (long macAddress, int start, int end);
     public IOFFlowspace addDataLayerDst (byte[] macAddress);
     public IOFFlowspace blockDataLayerDst (long macAddress);
+	public IOFFlowspace blockDataLayerDst (long macAddress, int start, int end);
     public IOFFlowspace blockDataLayerDst(byte[] macAddress);
     public IOFFlowspace removeDataLayerDst (long macAddress);
+	public IOFFlowspace removeDataLayerDst (long macAddress, int start, int end);
     public IOFFlowspace removeDataLayerDst (byte[] macAddress);
     public IOFFlowspace addDataLayerDst(String mac);
+	public List<DelegatedMAC> getDataLayerDst();
+	public List<DelegatedMAC> getBlockedDataLayerDst();
+
     
     public Long getRandomDataLayerSrc();
     public boolean verifyDataLayerSrc (long mac);
-    public IOFFlowspace setDataLayerSrc (Map<Long, Boolean> dataLayerSource);
+    public IOFFlowspace setDataLayerSrc (List<DelegatedMAC> dataLayerSource);
     public IOFFlowspace addDataLayerSrc (long macAddress);
+	public IOFFlowspace addDataLayerSrc (long macAddress, int start, int end);
     public IOFFlowspace addDataLayerSrc (byte[] macAddress);
     public IOFFlowspace blockDataLayerSrc (long macAddress);
+	public IOFFlowspace blockDataLayerSrc (long macAddress, int start, int end);
     public IOFFlowspace blockDataLayerSrc (byte[] macAddress);
     public IOFFlowspace removeDataLayerSrc (long macAddress);
+	public IOFFlowspace removeDataLayerSrc (long macAddress, int start, int end);
     public IOFFlowspace removeDataLayerSrc (byte[] macAddress);
     public IOFFlowspace addDataLayerSrc (String mac);
+	public List<DelegatedMAC> getDataLayerSrc();
+	public List<DelegatedMAC> getBlockedDataLayerSrc();
 
     public boolean verifyDataLayerType (short etherType);
     public Short getRandomDataLayerType ();

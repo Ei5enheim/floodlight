@@ -18,6 +18,7 @@ import net.floodlightcontroller.graphdbreader.IGraphDBRequest;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 import org.renci.doe.pharos.flow.Rules;
 
@@ -28,6 +29,7 @@ public class GraphDBRequest implements IGraphDBRequest
     protected Map <Link, Rules> ruleTransTables;
     protected List<Link> links;
 	protected Set<Long> switches;
+	protected DelegatedMAC mac;
 
     public GraphDBRequest ()
     {
@@ -38,14 +40,16 @@ public class GraphDBRequest implements IGraphDBRequest
                             Map <NodePortTuple, IOFFlowspace[]>  flowspace,
                             Map <Link, Rules> ruleTransTables,
                             List<Link> links,
-							Set<Long> switches)
+							Set<Long> switches,
+							DelegatedMAC mac)
     {
-        super();
+        this();
         this.domainMapper = domainMapper;
         this.flowspace = flowspace;
         this.ruleTransTables = ruleTransTables;
         this.links = links;
 		this.switches = switches;
+		this.mac = mac;
     }
 
     public Map <Long, String> getDomainMapper ()
@@ -72,5 +76,41 @@ public class GraphDBRequest implements IGraphDBRequest
 	public Set<Long> getSwitches()
 	{
 		return this.switches;
+	}
+
+    public void setDomainMapper (Map <Long, String> domainMapper)
+    {
+        this.domainMapper = domainMapper;
+    }
+
+    public void setDomainFlowspace (Map <NodePortTuple, IOFFlowspace[]> flowspace)
+    {
+        this.flowspace = flowspace;
+
+    }
+
+    public void setRuleTransTables(Map <Link, Rules> table)
+    {
+        this.ruleTransTables = table;
+    }
+
+    public void setLinks(List<Link> links)
+    {
+        this.links = links;    
+    }
+
+	public void setSwitches(Set<Long> switches)
+	{
+		this.switches = switches;
+	}
+
+	public void setDelegatedMAC(DelegatedMAC mac)
+	{
+		this.mac = mac;
+	}
+
+	public DelegatedMAC getDelegatedMAC() 
+	{
+		return this.mac;
 	}
 }

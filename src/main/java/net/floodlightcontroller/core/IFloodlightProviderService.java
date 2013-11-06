@@ -30,6 +30,7 @@ import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.routing.Link;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFType;
@@ -244,4 +245,5 @@ public interface IFloodlightProviderService extends
     public String getSwDomain (long dpid);
 
     public boolean allPresent (Set<Long> switches);
+
 }

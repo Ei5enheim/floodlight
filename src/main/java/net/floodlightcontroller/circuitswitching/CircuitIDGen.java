@@ -7,7 +7,7 @@ package net.floodlightcontroller.circuitswitching;
 
 public class CircuitIDGen
 {
-    protected long dpID;
+    protected long baseAddress;
 	protected int startBit;
 	protected int endBit;
     protected Object lock;
@@ -15,20 +15,50 @@ public class CircuitIDGen
 
     public CircuitIDGen()
     {
-        dpID = -1;
+        baseAddress = -1L;
         lock = new Object();
     }
 
-    public CircuitIDGen(long dpID)
+    public CircuitIDGen(long baseAddress)
     {
-        this.dpID = dpID;
+        this.baseAddress = baseAddress;
         lock = new Object();
     }
 
-    public long getDpID()
+	public CircuitIDGen(long baseAddress, int start, int end)
     {
-        return (dpID);
+        this.baseAddress = baseAddress;
+		this.startBit = start;
+		this.endBit = end;
+        lock = new Object();
     }
+
+
+    public long getBaseAddress()
+    {
+        return (baseAddress);
+    }
+
+	public CircuitIDGen updateBaseAddress(long baseAddress)
+	{
+		synchronized (lock) {
+			this.baseAddress = baseAddress;
+			circuitCount = 0;
+		}
+		return this;
+	}
+
+	public CircuitIDGen setStartBit (int startBit)
+	{
+		this.startBit = startBit;
+		return this;
+	}
+
+	public CircuitIDGen setEndBit (int endBit)
+	{
+		this.endBit = endBit;
+		return this;
+	}
 
     public Object getLock()
     {
@@ -42,10 +72,18 @@ public class CircuitIDGen
 
     public long getCircuitID()
     {
+		long circuitID = 0L;
+		long count = 0;
         synchronized (lock) {
             circuitCount++;
+			count = circuitCount;
+			if (circuitCount >= (1L << (endBit-startBit + 1)));
+				//throw an Exception
         } 
-        return (circuitCount);
+		circuitID = (baseAddress & (~((0x1L << endBit+1) - 0x1L)
+									| ((0x1L << startBit) - 0x1L))) | count;
+
+        return (circuitID);
     }
 }
 

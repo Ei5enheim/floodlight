@@ -26,6 +26,7 @@ import net.floodlightcontroller.graphdbreader.internal.GraphDBRequest;
 import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.core.util.SingletonTask;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 import org.renci.doe.pharos.flow.Rules;
 import org.renci.doe.pharos.flow.Rule;
@@ -78,6 +79,52 @@ import com.tinkerpop.blueprints.Direction;
 public class GraphDBReaderImpl implements IGraphDBReaderService,
                                             IFloodlightModule
 {
+    private class InterDomainWorkerThread implements Runnable
+    {
+        IGraphDBRequest topoSlice;
+        TopoLock lock;
+        ScheduledExecutorService ses = null;
+        
+        public InterDomainWorkerThread (IGraphDBRequest topoSlice,
+                                        ScheduledExecutorService ses)
+        {
+            this.topoSlice = topoSlice;
+            this.ses = ses;
+            floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
+            lock = topoValidator.validateTopology(topoSlice.getLinks(),
+                                                topoSlice.getRuleTransTables(), false);
+        }
+
+        public void run()
+        {
+			try {
+				//logger.trace("***** Executing worker thread *******");	
+            	if (lock == null) {
+            	    throw new GraphDBException (" ******* Exception, Unable to validate topology, lock is null ******* \n");
+            	}
+       
+            	if (lock.checkValidationStatus()) {
+					logger.trace("********* started stitching domains ***********");
+					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
+					topoLinks = topoSlice.getLinks().toArray(topoLinks);
+					linkManager.addLinks(topoLinks);
+					logger.trace("******** Added inter domain links to the topology ***********");
+				} else {
+					if (lock.getRetryCount() > 3) {
+						throw new GraphDBException (" ******* Exception, Unable to validate topology ******* \n"+
+													"Not all validation packets reached the controller");
+                	}  else {
+                    	lock.incrementRetryCount();
+                    	ses.schedule(this, TOPOLOGY_UPDATE_INTERVAL_MS,
+                        	         TimeUnit.MILLISECONDS);   
+                	}  
+            	}
+            } catch (Exception e) {
+                logger.trace("got you!!!!!!!!! {}", e);
+            }
+        }
+    }
+
     private class WorkerThread implements Runnable
     {
         IGraphDBRequest topoSlice;
@@ -102,7 +149,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 			try {
 				//logger.trace("***** Executing worker thread *******");	
             	if (lock == null) {
-            	    throw new GraphDBException (" ******* Exception, Unable to validate topology, lock is null ******* \n");
+            	    throw new GraphDBException (" ******* Exception, Unable to validate " + 
+                                                "topology, lock is null ******* \n");
             	}
        
             	if (lock.checkValidationStatus()) {
@@ -115,7 +163,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 					if (lock.getRetryCount() > 3) {
 						throw new GraphDBException (" ******* Exception, Unable to validate topology ******* \n"+
 													"Not all validation packets reached the controller");
-                    	//logger.debug("******* Exception, Unable to validate topology *******");
                 	}  else {
                     	lock.incrementRetryCount();
                     	ses.schedule(this, TOPOLOGY_UPDATE_INTERVAL_MS,
@@ -130,7 +177,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
     private class UpdatesThread implements Runnable
     {
-        int indx = 0;
         ScheduledExecutorService ses = null;
 
         public UpdatesThread()
@@ -146,25 +192,50 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
  
         public void run()
         {
-			//logger.trace("*************** Executing the updates thread *************");	
+            int indx = 0;
+            List<Link> links = null; 
             List<IGraphDBRequest> clone = null;
+            Set<Long> switches = null;
+            Map<Link, Rules> tables = null;
+            
             try {
                 if (!queue.isEmpty()) {
                     synchronized (queue) {
-                        // No need of a deep as we are not going to modify any data
+                        // No need of a deep copy as we are not going to modify any data
                         clone = new ArrayList(queue);
                     }
 					logger.trace("*********** Checking if switches are ready *******"); 
-                    //TODO need replace it with a loop, 
-                    IGraphDBRequest req = clone.get(indx);
-                    if (floodlightProvider.allPresent(req.getSwitches())) {
-			 			synchronized (queue) {
-							queue.remove(indx);
-						}
-						logger.trace("********** Switches are ready, starting a worker thread ********");	
-                        WorkerThread worker = new WorkerThread(req, ses);
-                        ses.execute(worker);
+                    //TODO need to replace it with a loop, 
+                    for (indx = 0; indx < clone.size(); indx++) {
+                        IGraphDBRequest req = clone.get(indx);
+                        if (floodlightProvider.allPresent(req.getSwitches())) {
+			 			    synchronized (queue) {
+							    queue.remove(indx);
+                            }
+                            clone.remove(indx);
+						    logger.trace("********** Switches are ready, starting a worker" + 
+                                            " thread ********");	
+                            WorkerThread worker = new WorkerThread(req, ses);
+                            ses.execute(worker);
+                        }
                     }
+                }
+                synchronized (interDomainLinks) {
+                    switches = new HashSet(interDomainLinks.getSwitches());
+                    links = new ArrayList(interDomainLinks.getLinks());
+                    tables = new ConcurrentHashMap <Link, Rules>(interDomainLinks.getRuleTransTables());
+                }
+                if (floodlightProvider.allPresent(switches)) {
+                    IGraphDBRequest newReq = new GraphDBRequest(null, null,
+                                                                tables, links, switches, null);
+                    synchronized (interDomainLinks) {
+                        interDomainLinks.getLinks().removeAll(links);
+                        interDomainLinks.getSwitches().removeAll(switches);
+                        for (Link link: tables.keySet())
+                            tables.remove(link);
+                    }
+                    InterDomainWorkerThread worker = new InterDomainWorkerThread(newReq, ses);
+                    ses.execute(worker);
                 }
             } catch (Exception e) {
                 logger.trace("caugth an Exception in Updates Task, GraphDBReader: {}", e); 
@@ -221,6 +292,12 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
         updatesTask = new SingletonTask(ses, new UpdatesThread(ses));
 		updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
+        initInterDomainLinks();
+        interDomainLock = new Object();
+        /*interDomainLinks = new GraphDBRequest();
+        interDomainLinks.setRuleTransTables(new ConcurrentHashMap <Link, Rules>());
+        interDomainLinks.setLinks(new ArrayList<Link>());
+        interDomainLinks.setSwitches(new HashSet<Long> ());*/
         logger.info("\n **** Starting the Graphdb reader module ****\n");
     }
 
@@ -233,15 +310,32 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 		return (fileName);
 	}
 
+    private void initInterDomainLinks()
+    {
+        interDomainLinks = new GraphDBRequest();
+        interDomainLinks.setRuleTransTables(new ConcurrentHashMap <Link, Rules>());
+        interDomainLinks.setLinks(new ArrayList<Link>());   
+        interDomainLinks.setSwitches(new HashSet<Long> ()); 
+    }
+
+    private DelegatedMAC getDelegatedSourceMAC(Collection<IOFFlowspace[]> flowspace)
+    {
+        Object[] array = flowspace.toArray();
+        IOFFlowspace[] portFlowspace = (IOFFlowspace[])array[0];
+       
+        return (portFlowspace[EGRESS].getDataLayerSrc().get(0)); 
+    }
+
     // internal utility methods
     public void readGraph (byte[] xmlFile)
     {
-        Set <Long> switches = new HashSet <Long> ();
+        Set <Long> switches = new HashSet<Long> ();
         HashSet <Vertex> vertices = new HashSet <Vertex>();
         List<Edge> pruneList = new ArrayList<Edge>();
         Map <Long, String> domainMapper;
         Map <NodePortTuple, IOFFlowspace[]>  flowspace;
         Map <Link, Rules> ruleTransTables;
+        DelegatedMAC srcMAC = null;
         List<Link> links;
         String localDomain = null;
         String fileName = getFileName();
@@ -266,9 +360,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         }
         for (Edge e: graph.getEdges()) {
             try {
-                processEdge(e, vertices, switches, pruneList, 
-                        links, flowspace, domainMapper,
-                        ruleTransTables, localDomain);
+                localDomain = processEdge(e, vertices, switches, pruneList, 
+                                            links, flowspace, domainMapper,
+                                            ruleTransTables, localDomain);
             } catch (FlowspaceException fe) {
                 logger.trace("*********caught an exception {}*********", fe); 
             }
@@ -288,12 +382,14 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             }
         }
 
+        srcMAC = getDelegatedSourceMAC(flowspace.values()); 
+
         IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
-                					ruleTransTables, links, switches);
+                					ruleTransTables, links, switches, srcMAC);
         queue.add(node);
     }
 
-    private void processEdge (Edge e, HashSet <Vertex> vertices,
+    private String processEdge (Edge e, HashSet <Vertex> vertices,
             Set <Long> switches,
             List<Edge> pruneList,
             List<Link> links,
@@ -308,6 +404,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         boolean isPhysEdge = false;
         NodePortTuple headSwitchPort = null, tailSwitchPort = null;
         Link link = null;
+        boolean interDomainLink = false;
 
         inNode = e.getVertex(Direction.IN);
         outNode = e.getVertex(Direction.OUT);
@@ -315,8 +412,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         if (!inNode.getProperty("domain").equals(outNode.getProperty("domain"))){
             if (localDomain == null) {
                 pruneList.add(e);
-                return;
+                return null;
             }
+            interDomainLink = true;
         } else {
             localDomain = inNode.getProperty("domain");
         }
@@ -336,12 +434,22 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                     (String)outNode.getProperty("Port") + " ----> {dstDpid = "+ headDpid +
                     ", dstPort = "+  (String)inNode.getProperty("Port"));*/
             link = new Link (tailDpid, tailSwitchPort.getPortId(),
-                    		headDpid, headSwitchPort.getPortId());
-            links.add(link);	
-
-			if (e.getProperty("Rules") != null)	
-            	ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
-
+                            headDpid, headSwitchPort.getPortId());
+            if (!interDomainLink) {
+                links.add(link);	
+			    if (e.getProperty("Rules") != null)	
+            	    ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
+            } else {
+                interDomainLink = false;
+                synchronized (interDomainLinks) {
+                    interDomainLinks.getLinks().add(link);
+                    interDomainLinks.getSwitches().add(headDpid);
+                    interDomainLinks.getSwitches().add(tailDpid);
+                    if (e.getProperty("Rules") != null)
+                        interDomainLinks.getRuleTransTables().put(link, 
+                                                    new Rules((String)e.getProperty("Rules")));
+                }
+            }
         } else {
             // for now ignoring the "can be connected links"
         }
@@ -394,6 +502,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 //System.out.println("[Ingress] Flowspace: " + outNode.getProperty("Flowspace"));
             }
         }
+        return localDomain;
     }
 
     //internal utility method
@@ -437,6 +546,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     protected ITopoValidationService topoValidator;
     protected IThreadPoolService threadPool;
     protected static List<IGraphDBRequest> queue;
+    protected static IGraphDBRequest interDomainLinks;
+    protected static Object interDomainLock;
     protected SingletonTask updatesTask;
     protected static Logger logger;
     private static final int port = 6999;
