@@ -305,7 +305,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 	{
 		String fileName = "./db/";
 		synchronized (this) {
-			fileName = fileName + String.valueOf(count)+".xml";
+			fileName = fileName + String.valueOf(count++)+".xml";
 		}
 		return (fileName);
 	}
