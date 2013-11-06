@@ -4,15 +4,13 @@
  *
  */
 
-package net.floodlightcontroller.graphdbreader;
+package net.floodlightcontroller.graphdbreader.internal;
 
 import net.floodlightcontroller.graphdbreader.IGraphDBReaderService;
+import net.floodlightcontroller.graphdbreader.GraphDBException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.module.IFloodlightService;
-import net.floodlightcontroller.core.FloodlightContext;
-import net.floodlightcontroller.core.module.FloodlightModuleContext;
-import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.topovalidation.ITopoValidationService;
 import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.core.FloodlightContext;
@@ -20,9 +18,15 @@ import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.topology.IOFFlowspace;
 import net.floodlightcontroller.topology.OFFlowspace;
+import net.floodlightcontroller.topovalidation.internal.TopoLock;
 import net.floodlightcontroller.topology.FlowspaceException;
 import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.graphdbreader.IGraphDBRequest;
+import net.floodlightcontroller.graphdbreader.internal.GraphDBRequest;
 import net.floodlightcontroller.routing.Link;
+import net.floodlightcontroller.threadpool.IThreadPoolService;
+import net.floodlightcontroller.core.util.SingletonTask;
+import net.floodlightcontroller.util.DelegatedMAC;
 
 import org.renci.doe.pharos.flow.Rules;
 import org.renci.doe.pharos.flow.Rule;
@@ -30,19 +34,34 @@ import org.renci.doe.pharos.flow.Rule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
+import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.HashSet;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.URL;
+
+import org.apache.xmlrpc.common.TypeConverterFactoryImpl;
+import org.apache.xmlrpc.server.PropertyHandlerMapping;
+import org.apache.xmlrpc.server.XmlRpcServer;
+import org.apache.xmlrpc.server.XmlRpcServerConfigImpl;
+import org.apache.xmlrpc.webserver.WebServer;
 
 import com.tinkerpop.blueprints.Graph;
 import com.tinkerpop.blueprints.impls.dex.DexGraph;
@@ -57,27 +76,86 @@ import com.tinkerpop.pipes.filter.*;
 import com.tinkerpop.blueprints.Contains;
 import com.tinkerpop.blueprints.Direction;
 
-
 public class GraphDBReaderImpl implements IGraphDBReaderService,
                                             IFloodlightModule
 {
+    private class UpdatesThread implements Runnable
+    {
+        ScheduledExecutorService ses = null;
+
+        public UpdatesThread()
+        {
+            super();
+        }
+
+        public UpdatesThread(ScheduledExecutorService ses)
+        {
+            super();
+            this.ses = ses;
+        }
+ 
+        public void run()
+        {
+            int indx = 0;
+            List<Link> links = null; 
+            List<IGraphDBRequest> clone = null;
+            Set<Long> switches = null;
+            Map<Link, Rules> tables = null;
+            
+            try {
+                if (!queue.isEmpty()) {
+                    synchronized (queue) {
+                        // No need of a deep copy as we are not going to modify any data
+                        clone = new ArrayList(queue);
+                    }
+					logger.trace("*********** Checking if switches are ready *******"); 
+                    //TODO need to replace it with a loop, 
+                    for (indx = 0; indx < clone.size(); indx++) {
+                        IGraphDBRequest req = clone.get(indx);
+                        if (floodlightProvider.allPresent(req.getSwitches())) {
+			 			    synchronized (queue) {
+							    queue.remove(indx);
+                            }
+                            clone.remove(indx);
+						    logger.trace("********** Switches are ready, starting a worker" + 
+                                            " thread ********");	
+                            WorkerThread worker = new WorkerThread(req, ses);
+                            ses.execute(worker);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.trace("caugth an Exception in Updates Task, GraphDBReader: {}", e); 
+            } finally {
+                updatesTask.reschedule(SWITCH_STATE_UPDATE_INTERVAL_MS,
+                                        TimeUnit.MILLISECONDS);
+            }
+        }
+    }
+
     // IFloodlightModule routines
     public Collection<Class<? extends IFloodlightService>> getModuleServices()
     {
-        return null;
+        Collection <Class<? extends IFloodlightService>> list =
+            new ArrayList<Class<? extends IFloodlightService>>();
+        list.add(IGraphDBReaderService.class);
+        return (list);
     }
 
     public Map<Class<? extends IFloodlightService>,
-               IFloodlightService> getServiceImpls()
-
+           IFloodlightService> getServiceImpls()
     {
-        return null;
+		Map <Class<? extends IFloodlightService>, IFloodlightService> map =
+        			new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
+
+		map.put(IGraphDBReaderService.class, this);
+		return (map);
     }
 
     public Collection<Class<? extends IFloodlightService>> getModuleDependencies()
     {
         Collection<Class <? extends IFloodlightService>> collection =
-                                    new ArrayList<Class<? extends IFloodlightService>>();
+            new ArrayList<Class<? extends IFloodlightService>>();
         collection.add(IFloodlightProviderService.class);
         collection.add(ITopoValidationService.class);
         collection.add(ILinkDiscoveryService.class);
@@ -91,169 +169,258 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         logger = LoggerFactory.getLogger(GraphDBReaderImpl.class);
         linkManager = context.getServiceImpl(ILinkDiscoveryService.class);
         topoValidator = context.getServiceImpl(ITopoValidationService.class);
-
-        domainMapper = new HashMap <Long, String> ();
-        flowspace = new ConcurrentHashMap <NodePortTuple, IOFFlowspace[]>();
-        ruleTransTables = new ConcurrentHashMap <Link, Rules> ();
+        threadPool = context.getServiceImpl(IThreadPoolService.class);
+        queue = Collections.synchronizedList(new ArrayList<IGraphDBRequest>());
     }
 
     public void startUp(FloodlightModuleContext context)
     {
-        logger.info("\n ****Starting the Graphdb reader module****\n");
+        startServer();
+        ScheduledExecutorService ses = threadPool.getScheduledExecutor();
+        updatesTask = new SingletonTask(ses, new UpdatesThread(ses));
+		updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
+        logger.info("\n **** Starting the Graphdb reader module ****\n");
     }
 
+	public String getFileName()
+	{
+		String fileName = "./db/";
+		synchronized (this) {
+			fileName = fileName + String.valueOf(count++)+".xml";
+		}
+		return (fileName);
+	}
+
     // internal utility methods
-    public void readGraph ()
+    public void readGraph (byte[] xmlFile)
     {
-        HashSet <Long> nodes = new HashSet <Long> ();
+        Set <Long> switches = new HashSet<Long> ();
         HashSet <Vertex> vertices = new HashSet <Vertex>();
-        String fileName = "./db/doe_pharos_domain_A.dex";
-        File file = new File(fileName);
-        List pruneList = new ArrayList<Edge>();
-        BufferedInputStream stream = null;
-
-        try {
-            stream = new BufferedInputStream(
-                                        new FileInputStream("doe_pharos_domain_A.xml"));
-        } catch (FileNotFoundException fnf) {
-    
-        }
-
+        List<Edge> pruneList = new ArrayList<Edge>();
+        Map <Long, String> domainMapper;
+        Map <NodePortTuple, IOFFlowspace[]>  flowspace;
+        Map <Link, Rules> ruleTransTables;
+        DelegatedMAC srcMAC = null;
+        List<Link> links;
         String localDomain = null;
+        String fileName = getFileName();
+        ByteArrayInputStream stream = null; 
+        //BufferedInputStream stream = null;
+        File file = new File(fileName);
+
+        if (file.exists())
+            file.delete();
+
+        stream = new ByteArrayInputStream(xmlFile);
         flowspace = new ConcurrentHashMap <NodePortTuple, IOFFlowspace[]>();
         ruleTransTables = new ConcurrentHashMap <Link, Rules>();
         links = new ArrayList<Link>();
         domainMapper = new HashMap<Long, String>();
 
-        if (file.exists())
-            file.delete();
-
         Graph graph = new DexGraph(fileName);
         try {
             GraphMLReader.inputGraph(graph, stream);
         } catch (IOException io) {
-
+            logger.trace("*********caught an exception {}*********", io); 
         }
         for (Edge e: graph.getEdges()) {
             try {
-                processEdge(e, vertices, nodes, pruneList, localDomain);
-            } catch (FlowspaceException t) {
-    
+                localDomain = processEdge(e, vertices, switches, pruneList, 
+                                            links, flowspace, domainMapper,
+                                            ruleTransTables, localDomain);
+            } catch (FlowspaceException fe) {
+                logger.trace("*********caught an exception {}*********", fe); 
             }
         }
 
         if (!pruneList.isEmpty()) {
             Edge[] array = new Edge[pruneList.size()];
+            array = pruneList.toArray(array);
             for (Edge e: array) {
                 try {
-                    processEdge(e, vertices, nodes, pruneList, localDomain);
-                } catch (FlowspaceException t) {
-                
+                    processEdge(e, vertices, switches, pruneList,
+                            links, flowspace, domainMapper,
+                            ruleTransTables, localDomain);
+                } catch (FlowspaceException fs) {
+                    logger.trace("*********caught an exception {}*********", fs);
                 }
             }
         }
-        linkManager.blockLinkDiscovery();
-        floodlightProvider.addFlowspace(flowspace);
-        floodlightProvider.addRuleTransTables(ruleTransTables);
-        floodlightProvider.addDomainMapper(domainMapper);
-        topoValidator.validateTopology(links, ruleTransTables, false);
-        //Invoke the topovalidator here using the topolock here.
-        // Need to deal with the combination part and leaving out the
-        // single node from a seperate domain and the lock part.
-        linkManager.enableLinkDiscovery();
-        linkManager.addLinks((Link[]) links.toArray());
 
+        srcMAC = getDelegatedSourceMAC(flowspace.values()); 
+
+        IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
+                					ruleTransTables, links, switches, srcMAC);
+        queue.add(node);
     }
 
-    private void processEdge (Edge e, HashSet <Vertex> vertices,
-                              HashSet <Long> nodes,
-                              List<Edge> pruneList,
-                              String localDomain) throws FlowspaceException
+    private String processEdge (Edge e, HashSet <Vertex> vertices,
+            Set <Long> switches,
+            List<Edge> pruneList,
+            List<Link> links,
+            Map <NodePortTuple, IOFFlowspace[]> flowspace,
+            Map <Long, String> domainMapper,
+            Map <Link, Rules> ruleTransTables,
+            String localDomain) throws FlowspaceException
     {
-        long dstDpid = 0;
-        short dstPort = 0;
-        Vertex node = null, outNode = null;
+        Long headDpid = null, tailDpid= null;
+        short headPort = 0, tailPort = 0;
+        Vertex inNode = null, outNode = null;
         boolean isPhysEdge = false;
-        NodePortTuple switchPort = null;
+        NodePortTuple headSwitchPort = null, tailSwitchPort = null;
         Link link = null;
+        boolean interDomainLink = false;
 
-        node = e.getVertex(Direction.IN);
+        inNode = e.getVertex(Direction.IN);
         outNode = e.getVertex(Direction.OUT);
 
-        if (!node.getProperty("domain").equals(outNode.getProperty("domain"))){
+        if (!inNode.getProperty("domain").equals(outNode.getProperty("domain"))){
             if (localDomain == null) {
                 pruneList.add(e);
-                return;
+                return null;
             }
+            interDomainLink = true;
         } else {
-            localDomain = node.getProperty("domain");
+            localDomain = inNode.getProperty("domain");
         }
 
         isPhysEdge = e.getLabel().equals(wantedLabel);
 
-        if (!vertices.contains(node) &&
-            node.getProperty("domain").equals(localDomain)) {
-            Long dpid = Long.valueOf((String)node.getProperty("DPID"));
-            vertices.add(node);
-            if (!nodes.contains(dpid)) {
-                nodes.add(dpid);
-                System.out.println("Vertex is " + node.getProperty("DPID") + ", " + node.getId());
-                domainMapper.put(dpid, (String)node.getProperty("domain"));
-            }
-            switchPort = new NodePortTuple(dpid,
-                                    Short.valueOf((String)node.getProperty("Port")));
-            if (flowspace.get(switchPort) == null)
-                flowspace.put(switchPort, new IOFFlowspace[2]);
-            if (isPhysEdge) {
-                dstDpid = dpid;
-                dstPort = switchPort.getPortId();
-                System.out.println("Domain: "+node.getProperty("domain")+" Node: "+ node.getProperty("DPID")+" Port: "+ node.getProperty("Port")+"[Ingress] Flowspace: "+node.getProperty("Flowspace"));
-                flowspace.get(switchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
-                                                      (String)node.getProperty("Flowspace"));
+        headDpid = new BigInteger((String)inNode.getProperty("DPID"), 16).longValue();
+        headSwitchPort = new NodePortTuple(headDpid,
+                Short.valueOf((String)inNode.getProperty("Port")));
+
+        tailDpid = new BigInteger((String)outNode.getProperty("DPID"),16).longValue();
+        tailSwitchPort = new NodePortTuple(tailDpid,
+                Short.valueOf((String)outNode.getProperty("Port")));
+
+        if (isPhysEdge) {
+            /*System.out.println("link between {srcDpid = "+ tailDpid +", srcPort = "+ 
+                    (String)outNode.getProperty("Port") + " ----> {dstDpid = "+ headDpid +
+                    ", dstPort = "+  (String)inNode.getProperty("Port"));*/
+            link = new Link (tailDpid, tailSwitchPort.getPortId(),
+                            headDpid, headSwitchPort.getPortId());
+            if (!interDomainLink) {
+                links.add(link);	
+			    if (e.getProperty("Rules") != null)	
+            	    ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
             } else {
-                System.out.println("Domain: "+node.getProperty("domain")+" Node: "+ node.getProperty("DPID")+" Port: "+ node.getProperty("Port")+"[Egress] Flowspace: "+node.getProperty("Flowspace"));
-                flowspace.get(switchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
-                                                              (String)node.getProperty("Flowspace"));
+                interDomainLink = false;
+                synchronized (interDomainLinks) {
+                    interDomainLinks.getLinks().add(link);
+                    interDomainLinks.getSwitches().add(headDpid);
+                    interDomainLinks.getSwitches().add(tailDpid);
+                    if (e.getProperty("Rules") != null)
+                        interDomainLinks.getRuleTransTables().put(link, 
+                                                    new Rules((String)e.getProperty("Rules")));
+                }
+            }
+        } else {
+            // for now ignoring the "can be connected links"
+        }
+
+        if (!vertices.contains(inNode) &&
+                inNode.getProperty("domain").equals(localDomain)) {
+            	vertices.add(inNode);
+            if (!switches.contains(headDpid)) {
+                switches.add(headDpid);
+                //System.out.println("Vertex is " + inNode.getProperty("DPID") + ", " + inNode.getId());
+                domainMapper.put(headDpid, (String)inNode.getProperty("domain"));
+            }
+            if (flowspace.get(headSwitchPort) == null)
+                flowspace.put(headSwitchPort, new IOFFlowspace[2]);
+            	/*System.out.println("Domain: "+ inNode.getProperty("domain")+" Node: "+ 
+                    inNode.getProperty("DPID") + " Port: " + 
+                    inNode.getProperty("Port"));*/
+            if (isPhysEdge) {
+                //System.out.println("[Ingress] Flowspace: " 
+                //        + inNode.getProperty("Flowspace"));
+                flowspace.get(headSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
+                        (String) inNode.getProperty("Flowspace"));
+            } else {
+                //System.out.println("[Egress] Flowspace: "
+                //        + inNode.getProperty("Flowspace"));
+                flowspace.get(headSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
+                        (String)inNode.getProperty("Flowspace"));
             }
         }
-        node = outNode;
-        if (!vertices.contains(node)&&
-            node.getProperty("domain").equals(localDomain)) {
-            Long dpid = Long.valueOf((String)node.getProperty("DPID"));
-            vertices.add(node);
-            if (!nodes.contains(dpid)) {
-                nodes.add(dpid);
-                domainMapper.put(dpid, (String)node.getProperty("domain"));
-                System.out.println("Vertex is " + node.getProperty("DPID") + ", " + node.getId());
+        if (!vertices.contains(outNode)&&
+                outNode.getProperty("domain").equals(localDomain)) {
+            vertices.add(outNode);
+            if (!switches.contains(tailDpid)) {
+                switches.add(tailDpid);
+                domainMapper.put(tailDpid, (String) outNode.getProperty("domain"));
+                //System.out.println("Vertex is " + outNode.getProperty("DPID") + ", " + outNode.getId());
             }
-            switchPort = new NodePortTuple(dpid,
-                            Short.valueOf((String)node.getProperty("Port")));
-            if (flowspace.get(switchPort) == null)
-                flowspace.put(switchPort, new IOFFlowspace[2]);
+            if (flowspace.get(tailSwitchPort) == null)
+                flowspace.put(tailSwitchPort, new IOFFlowspace[2]);
+
+            /*System.out.println("Domain: " + outNode.getProperty("domain") + " Node: " +
+                    outNode.getProperty("DPID") + " Port: "+ outNode.getProperty("Port"));*/
             if (isPhysEdge) {
-                link = new Link (dpid, switchPort.getPortId(),
-                                dstDpid, dstPort);
-                links.add(link);
-                flowspace.get(switchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
-                                                     (String)node.getProperty("Flowspace"));
-                ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
-                System.out.println("Domain: "+node.getProperty("domain")+" Node: "+ node.getProperty("DPID")+" Port: "+ node.getProperty("Port")+"[Egress] Flowspace: "+node.getProperty("Flowspace"));
+                flowspace.get(tailSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
+                        (String) outNode.getProperty("Flowspace"));
+                //System.out.println("[Egress] Flowspace: " + outNode.getProperty("Flowspace"));
             } else {
-                flowspace.get(switchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
-                                                           (String)node.getProperty("Flowspace"));;
-                System.out.println("Domain: "+node.getProperty("domain")+" Node: "+ node.getProperty("DPID")+" Port: "+ node.getProperty("Port")+"[Ingress] Flowspace: "+node.getProperty("Flowspace"));
+                flowspace.get(tailSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
+                        (String) outNode.getProperty("Flowspace"));;
+                //System.out.println("[Ingress] Flowspace: " + outNode.getProperty("Flowspace"));
             }
         }
+        return localDomain;
+    }
+
+    //internal utility method
+
+    private void startServer()
+    {
+
+        try {
+            webServer = new WebServer(port);
+            xmlRpcServer = webServer.getXmlRpcServer();
+            PropertyHandlerMapping phm = new PropertyHandlerMapping();
+            phm.addHandler("GraphDBReader",
+                    net.floodlightcontroller.graphdbreader.internal.GraphDBReaderImpl.class);
+            xmlRpcServer.setHandlerMapping(phm);
+            XmlRpcServerConfigImpl serverConfig =
+                (XmlRpcServerConfigImpl) xmlRpcServer.getConfig();
+            serverConfig.setEnabledForExtensions(true);
+            serverConfig.setContentLengthOptional(false);
+            webServer.start();
+        } catch (Exception e) {
+            logger.trace("************caught an Exception {}*************", e);
+        }
+    }
+
+    // IOFGraphDBReader
+
+    public Boolean parse(byte[] file)
+    {
+		try {
+        	readGraph(file);
+		} catch (Exception e) {
+			logger.trace("****** caught an exception {} ******", e);
+			e.printStackTrace();
+		}
+		logger.trace("******* Finished executing client call ******");
+        return (true);
     }
 
     protected IFloodlightProviderService floodlightProvider;
     protected ILinkDiscoveryService linkManager;
     protected ITopoValidationService topoValidator;
+    protected IThreadPoolService threadPool;
+    protected static List<IGraphDBRequest> queue;
+    protected static IGraphDBRequest interDomainLinks;
+    protected static Object interDomainLock;
+    protected SingletonTask updatesTask;
     protected static Logger logger;
-    protected HashMap <Long, String> domainMapper;
-    protected ConcurrentMap <NodePortTuple, IOFFlowspace[]>  flowspace;
-    protected ConcurrentMap <Link, Rules> ruleTransTables;
-	protected List<Link> links;
+    private static final int port = 6999;
+    private WebServer webServer;
+    private XmlRpcServer xmlRpcServer;
     private String wantedLabel = "Is connected to";
-    private int FLOWSPACE_SIZE = 2, INGRESS = 0, EGRESS = 1;
+    private final int FLOWSPACE_SIZE = 2, INGRESS = 0, EGRESS = 1;
+    private final int SWITCH_STATE_UPDATE_INTERVAL_MS = 400;
+    private final int TOPOLOGY_UPDATE_INTERVAL_MS = 200;
+	private static int count = 0;
 }
