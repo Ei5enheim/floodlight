@@ -144,9 +144,17 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     public void addedSwitch (IOFSwitch sw)
     {
         long dpID = sw.getId();
-        synchronized (unInitializedSws) {
-            unInitializedSws.add(dpID);
-        }
+
+		if (delegatedSrcMAC == null) {
+        	synchronized (unInitializedSws) {
+            	unInitializedSws.add(dpID);
+        	}
+		} else {
+            CircuitIDGen obj = new CircuitIDGen(delegatedSrcMAC.getBaseAddress(),
+                                    			delegatedSrcMAC.getStart(),
+                                    			delegatedSrcMAC.getEnd());
+			activeSwitches.put(dpID, obj);
+		}
         /*CircuitIDGen obj;
         
         if (delegatedSrcMAC != null) {

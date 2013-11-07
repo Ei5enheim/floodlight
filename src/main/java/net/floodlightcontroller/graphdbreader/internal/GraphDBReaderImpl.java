@@ -27,6 +27,7 @@ import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.core.util.SingletonTask;
 import net.floodlightcontroller.util.DelegatedMAC;
+import net.floodlightcontroller.circuitswitching.ICircuitSwitching;
 
 import org.renci.doe.pharos.flow.Rules;
 import org.renci.doe.pharos.flow.Rule;
@@ -108,6 +109,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
 					topoLinks = topoSlice.getLinks().toArray(topoLinks);
 					linkManager.addLinks(topoLinks);
+                    
 					logger.trace("******** Added inter domain links to the topology ***********");
 				} else {
 					if (lock.getRetryCount() > 3) {
@@ -158,6 +160,10 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
 					topoLinks = topoSlice.getLinks().toArray(topoLinks);
 					linkManager.addLinks(topoLinks);
+                    if (cSwitchingMod != null) {
+                        cSwitchingMod.setDelegatedSrcMAC(topoSlice.getDelegatedMAC());
+                        cSwitchingMod.initCircuitIDGens();
+                    }
 					logger.trace("******** Added links to the topology ***********");
 				} else {
 					if (lock.getRetryCount() > 3) {
@@ -283,6 +289,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         linkManager = context.getServiceImpl(ILinkDiscoveryService.class);
         topoValidator = context.getServiceImpl(ITopoValidationService.class);
         threadPool = context.getServiceImpl(IThreadPoolService.class);
+        cSwitchingMod = context.getServiceImpl(ICircuitSwitching.class);
         queue = Collections.synchronizedList(new ArrayList<IGraphDBRequest>());
     }
 
@@ -545,6 +552,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     protected ILinkDiscoveryService linkManager;
     protected ITopoValidationService topoValidator;
     protected IThreadPoolService threadPool;
+    protected ICircuitSwitching cSwitchingMod;
     protected static List<IGraphDBRequest> queue;
     protected static IGraphDBRequest interDomainLinks;
     protected static Object interDomainLock;

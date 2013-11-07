@@ -17,6 +17,7 @@ import net.floodlightcontroller.util.DelegatedMAC;
 public interface ICircuitSwitching extends IFloodlightService
 {
     public LinkedList<byte[]> getPathID (long srcID, long dstID, long cookie);
-	public void initCircuitIDGens ();
+	public void initCircuitIDGens();
+	public void setDelegatedSrcMAC (DelegatedMAC mac);
 }
 
