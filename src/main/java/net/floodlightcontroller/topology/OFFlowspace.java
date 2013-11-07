@@ -1640,13 +1640,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 				throw new FlowspaceException("Invalid flowspace");
 			String srcMAC = tokens[0].trim();
 			flowspace.addDataLayerSrc(Long.parseLong(srcMAC) & 0x0FFFFFFFFFFFFL,
-                                        maskStart-48, maskEnd-48, isDelegation);
+                                        95- maskEnd, 95 - maskStart, isDelegation);
 		} else if (DST_MAC_OFFSET.encloses(mask)) {
 			if (tokens[0].indexOf('-') > -1)
 				throw new FlowspaceException("Invalid flowspace");
 			String dstMAC = tokens[0].trim();
 			flowspace.addDataLayerDst(Long.parseLong(dstMAC) & 0x0FFFFFFFFFFFFL,    
-                                        maskStart, maskEnd, isDelegation);
+                                        47 - maskEnd, 47 - maskStart, isDelegation);
         
         } else if (VLAN_OFFSET.encloses(mask)) {
             range = tokens[0].split("[ ]*-[ ]*");
