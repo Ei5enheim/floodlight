@@ -1640,13 +1640,13 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 				throw new FlowspaceException("Invalid flowspace");
 			String srcMAC = tokens[0].trim();
 			flowspace.addDataLayerSrc(Long.parseLong(srcMAC) & 0x0FFFFFFFFFFFFL,
-                                        maskStart, maskEnd, isDelegation);
+                                        maskStart-48, maskEnd-48, isDelegation);
 		} else if (DST_MAC_OFFSET.encloses(mask)) {
 			if (tokens[0].indexOf('-') > -1)
 				throw new FlowspaceException("Invalid flowspace");
 			String dstMAC = tokens[0].trim();
 			flowspace.addDataLayerDst(Long.parseLong(dstMAC) & 0x0FFFFFFFFFFFFL,    
-                                        maskStart-48, maskEnd-48, isDelegation);
+                                        maskStart, maskEnd, isDelegation);
         
         } else if (VLAN_OFFSET.encloses(mask)) {
             range = tokens[0].split("[ ]*-[ ]*");
@@ -1718,8 +1718,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     }
 
     public static final Range <Integer> VLAN_OFFSET = Range.closed(96, 111);
-    public static final Range <Integer> SRC_MAC_OFFSET = Range.closed(0, 47);
-    public static final Range <Integer> DST_MAC_OFFSET = Range.closed(48, 95);
+    public static final Range <Integer> DST_MAC_OFFSET = Range.closed(0, 47);
+    public static final Range <Integer> SRC_MAC_OFFSET = Range.closed(48, 95);
     public static final Range <Integer> ETHERTYPE_OFFSET = Range.closed(112, 127);
     public static final Range <Integer> NWPROTO_OFFSET = Range.closed(128, 135);
     public static final Range <Integer> IP_SRC_OFFSET = Range.closed(136, 167);
