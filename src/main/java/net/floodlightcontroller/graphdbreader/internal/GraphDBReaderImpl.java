@@ -11,6 +11,7 @@ import net.floodlightcontroller.graphdbreader.GraphDBException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.circuitswitching.ICircuitSwitching;
 import net.floodlightcontroller.topovalidation.ITopoValidationService;
 import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.core.FloodlightContext;
@@ -97,10 +98,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         public void run()
         {
             int indx = 0;
-            List<Link> links = null; 
             List<IGraphDBRequest> clone = null;
             Set<Long> switches = null;
-            Map<Link, Rules> tables = null;
             
             try {
                 if (!queue.isEmpty()) {
@@ -108,20 +107,18 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         // No need of a deep copy as we are not going to modify any data
                         clone = new ArrayList(queue);
                     }
-					logger.trace("*********** Checking if switches are ready *******"); 
+					logger.trace("*********** running through the queue *******"); 
                     //TODO need to replace it with a loop, 
                     for (indx = 0; indx < clone.size(); indx++) {
                         IGraphDBRequest req = clone.get(indx);
-                        if (floodlightProvider.allPresent(req.getSwitches())) {
-			 			    synchronized (queue) {
-							    queue.remove(indx);
-                            }
-                            clone.remove(indx);
-						    logger.trace("********** Switches are ready, starting a worker" + 
-                                            " thread ********");	
-                            WorkerThread worker = new WorkerThread(req, ses);
-                            ses.execute(worker);
+                        synchronized (queue) {
+                            queue.remove(indx);
                         }
+                        clone.remove(indx);
+                        if (cSwitchingMod != null) {
+                            cSwitchingMod.addBlockedSrcMACList(req.getBlockedSrcMACList());
+                        }
+                        logger.trace("Setting the blocked List in circuitSwitching module");
                     }
                 }
             } catch (Exception e) {
@@ -170,6 +167,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         linkManager = context.getServiceImpl(ILinkDiscoveryService.class);
         topoValidator = context.getServiceImpl(ITopoValidationService.class);
         threadPool = context.getServiceImpl(IThreadPoolService.class);
+        cSwitchingMod = context.getServiceImpl(ICircuitSwitching.class);
         queue = Collections.synchronizedList(new ArrayList<IGraphDBRequest>());
     }
 
@@ -191,17 +189,25 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 		return (fileName);
 	}
 
+    private List<DelegatedMAC> getBlockedSrcMACList (Collection<IOFFlowspace[]> flowspace)
+    {
+        List<DelegatedMAC> blockedList = new ArrayList<DelegatedMAC>();
+        Object[] array = flowspace.toArray();
+        for (Object o: array) {
+            IOFFlowspace[] portFlowspace = (IOFFlowspace[])o;
+            if (!blockedList.containsAll(portFlowspace[EGRESS].getBlockedDataLayerSrc()))
+                blockedList.addAll(portFlowspace[EGRESS].getBlockedDataLayerSrc());
+        }
+        return (blockedList);
+    }
+
     // internal utility methods
     public void readGraph (byte[] xmlFile)
     {
         Set <Long> switches = new HashSet<Long> ();
         HashSet <Vertex> vertices = new HashSet <Vertex>();
         List<Edge> pruneList = new ArrayList<Edge>();
-        Map <Long, String> domainMapper;
         Map <NodePortTuple, IOFFlowspace[]>  flowspace;
-        Map <Link, Rules> ruleTransTables;
-        DelegatedMAC srcMAC = null;
-        List<Link> links;
         String localDomain = null;
         String fileName = getFileName();
         ByteArrayInputStream stream = null; 
@@ -213,9 +219,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 
         stream = new ByteArrayInputStream(xmlFile);
         flowspace = new ConcurrentHashMap <NodePortTuple, IOFFlowspace[]>();
-        ruleTransTables = new ConcurrentHashMap <Link, Rules>();
-        links = new ArrayList<Link>();
-        domainMapper = new HashMap<Long, String>();
 
         Graph graph = new DexGraph(fileName);
         try {
@@ -226,8 +229,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         for (Edge e: graph.getEdges()) {
             try {
                 localDomain = processEdge(e, vertices, switches, pruneList, 
-                                            links, flowspace, domainMapper,
-                                            ruleTransTables, localDomain);
+                                            flowspace, localDomain);
             } catch (FlowspaceException fe) {
                 logger.trace("*********caught an exception {}*********", fe); 
             }
@@ -238,29 +240,24 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             array = pruneList.toArray(array);
             for (Edge e: array) {
                 try {
-                    processEdge(e, vertices, switches, pruneList,
-                            links, flowspace, domainMapper,
-                            ruleTransTables, localDomain);
+                    localDomain = processEdge(e, vertices, switches, pruneList,
+                                                flowspace, localDomain);
                 } catch (FlowspaceException fs) {
                     logger.trace("*********caught an exception {}*********", fs);
                 }
             }
         }
 
-        srcMAC = getDelegatedSourceMAC(flowspace.values()); 
+        IGraphDBRequest node = new GraphDBRequest(getBlockedSrcMACList(flowspace.values()));
 
-        IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
-                					ruleTransTables, links, switches, srcMAC);
+        //getBlockedSrcMACList(flowspace.values());
         queue.add(node);
     }
 
     private String processEdge (Edge e, HashSet <Vertex> vertices,
             Set <Long> switches,
             List<Edge> pruneList,
-            List<Link> links,
             Map <NodePortTuple, IOFFlowspace[]> flowspace,
-            Map <Long, String> domainMapper,
-            Map <Link, Rules> ruleTransTables,
             String localDomain) throws FlowspaceException
     {
         Long headDpid = null, tailDpid= null;
@@ -269,7 +266,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         boolean isPhysEdge = false;
         NodePortTuple headSwitchPort = null, tailSwitchPort = null;
         Link link = null;
-        boolean interDomainLink = false;
 
         inNode = e.getVertex(Direction.IN);
         outNode = e.getVertex(Direction.OUT);
@@ -279,7 +275,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 pruneList.add(e);
                 return null;
             }
-            interDomainLink = true;
         } else {
             localDomain = inNode.getProperty("domain");
         }
@@ -294,39 +289,10 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         tailSwitchPort = new NodePortTuple(tailDpid,
                 Short.valueOf((String)outNode.getProperty("Port")));
 
-        if (isPhysEdge) {
-            /*System.out.println("link between {srcDpid = "+ tailDpid +", srcPort = "+ 
-                    (String)outNode.getProperty("Port") + " ----> {dstDpid = "+ headDpid +
-                    ", dstPort = "+  (String)inNode.getProperty("Port"));*/
-            link = new Link (tailDpid, tailSwitchPort.getPortId(),
-                            headDpid, headSwitchPort.getPortId());
-            if (!interDomainLink) {
-                links.add(link);	
-			    if (e.getProperty("Rules") != null)	
-            	    ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
-            } else {
-                interDomainLink = false;
-                synchronized (interDomainLinks) {
-                    interDomainLinks.getLinks().add(link);
-                    interDomainLinks.getSwitches().add(headDpid);
-                    interDomainLinks.getSwitches().add(tailDpid);
-                    if (e.getProperty("Rules") != null)
-                        interDomainLinks.getRuleTransTables().put(link, 
-                                                    new Rules((String)e.getProperty("Rules")));
-                }
-            }
-        } else {
-            // for now ignoring the "can be connected links"
-        }
-
         if (!vertices.contains(inNode) &&
                 inNode.getProperty("domain").equals(localDomain)) {
             	vertices.add(inNode);
-            if (!switches.contains(headDpid)) {
                 switches.add(headDpid);
-                //System.out.println("Vertex is " + inNode.getProperty("DPID") + ", " + inNode.getId());
-                domainMapper.put(headDpid, (String)inNode.getProperty("domain"));
-            }
             if (flowspace.get(headSwitchPort) == null)
                 flowspace.put(headSwitchPort, new IOFFlowspace[2]);
             	/*System.out.println("Domain: "+ inNode.getProperty("domain")+" Node: "+ 
@@ -336,12 +302,12 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 //System.out.println("[Ingress] Flowspace: " 
                 //        + inNode.getProperty("Flowspace"));
                 flowspace.get(headSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
-                        (String) inNode.getProperty("Flowspace"));
+                        (String) inNode.getProperty("Delegated"), true);
             } else {
                 //System.out.println("[Egress] Flowspace: "
                 //        + inNode.getProperty("Flowspace"));
                 flowspace.get(headSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
-                        (String)inNode.getProperty("Flowspace"));
+                        (String)inNode.getProperty("Delegated"), true);
             }
         }
         if (!vertices.contains(outNode)&&
@@ -349,8 +315,6 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             vertices.add(outNode);
             if (!switches.contains(tailDpid)) {
                 switches.add(tailDpid);
-                domainMapper.put(tailDpid, (String) outNode.getProperty("domain"));
-                //System.out.println("Vertex is " + outNode.getProperty("DPID") + ", " + outNode.getId());
             }
             if (flowspace.get(tailSwitchPort) == null)
                 flowspace.put(tailSwitchPort, new IOFFlowspace[2]);
@@ -359,11 +323,11 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                     outNode.getProperty("DPID") + " Port: "+ outNode.getProperty("Port"));*/
             if (isPhysEdge) {
                 flowspace.get(tailSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
-                        (String) outNode.getProperty("Flowspace"));
+                        (String) outNode.getProperty("Delegated"), true);
                 //System.out.println("[Egress] Flowspace: " + outNode.getProperty("Flowspace"));
             } else {
                 flowspace.get(tailSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
-                        (String) outNode.getProperty("Flowspace"));;
+                        (String) outNode.getProperty("Delegated"), true);;
                 //System.out.println("[Ingress] Flowspace: " + outNode.getProperty("Flowspace"));
             }
         }
@@ -410,6 +374,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     protected ILinkDiscoveryService linkManager;
     protected ITopoValidationService topoValidator;
     protected IThreadPoolService threadPool;
+    protected ICircuitSwitching cSwitchingMod;
     protected static List<IGraphDBRequest> queue;
     protected static IGraphDBRequest interDomainLinks;
     protected static Object interDomainLock;

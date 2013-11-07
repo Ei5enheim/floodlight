@@ -234,6 +234,15 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         return (this);
     }
 
+    public IOFFlowspace addDataLayerDst (long macAddress, int start,
+                                            int end, boolean add)
+    {
+        addDataLayerDst(new DelegatedMAC(macAddress, start, end),
+                                        add);
+        return (this);
+    }
+
+
     public IOFFlowspace addDataLayerDst (byte[] macAddress)
     {
         addDataLayerDst(byteArray2Long(macAddress),
@@ -411,6 +420,14 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     {
         this.addDataLayerSrc(new DelegatedMAC(macAddress, start, end),
 								Boolean.valueOf("true"));
+        return this;
+    }
+
+    public IOFFlowspace addDataLayerSrc (long macAddress, int start,
+                                        int end, boolean add)
+    {
+        this.addDataLayerSrc(new DelegatedMAC(macAddress, start, end),
+                                add);
         return this;
     }
 
@@ -1584,20 +1601,22 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
         return (null);
     }
 
-    public static IOFFlowspace parseFlowspaceString (String flowspaceDef) throws FlowspaceException
+    public static IOFFlowspace parseFlowspaceString (String flowspaceDef, 
+                                                    boolean isDelegation) throws FlowspaceException
     {
         IOFFlowspace flowspace = new OFFlowspace();
 		String delims="[ ]*\\^[ ]*";
         String[] tokens = flowspaceDef.split(delims);
 
         for (String token: tokens) {
-            parseFlowspaceComponent(token, flowspace);     
+            parseFlowspaceComponent(token, flowspace, isDelegation);     
         }
         return (flowspace);
    }
 
-    private static void parseFlowspaceComponent (String str, IOFFlowspace flowspace)
-                                throws FlowspaceException
+    private static void parseFlowspaceComponent (String str,
+                                                IOFFlowspace flowspace,
+                                                boolean isDelegation) throws FlowspaceException
     {
         String delims = "[ ]*/[ ]*";
         String[] tokens = str.split(delims); 
@@ -1620,12 +1639,14 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 			if (tokens[0].indexOf('-') > -1)
 				throw new FlowspaceException("Invalid flowspace");
 			String srcMAC = tokens[0].trim();
-			flowspace.addDataLayerSrc(Long.parseLong(srcMAC) & 0x0FFFFFFFFFFFFL, maskStart, maskEnd);
+			flowspace.addDataLayerSrc(Long.parseLong(srcMAC) & 0x0FFFFFFFFFFFFL,
+                                        maskStart, maskEnd, isDelegation);
 		} else if (DST_MAC_OFFSET.encloses(mask)) {
 			if (tokens[0].indexOf('-') > -1)
 				throw new FlowspaceException("Invalid flowspace");
 			String dstMAC = tokens[0].trim();
-			flowspace.addDataLayerDst(Long.parseLong(dstMAC) & 0x0FFFFFFFFFFFFL, maskStart-48, maskEnd-48);
+			flowspace.addDataLayerDst(Long.parseLong(dstMAC) & 0x0FFFFFFFFFFFFL,    
+                                        maskStart-48, maskEnd-48, isDelegation);
         
         } else if (VLAN_OFFSET.encloses(mask)) {
             range = tokens[0].split("[ ]*-[ ]*");
@@ -1635,7 +1656,10 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                 vlanEnd = Short.valueOf(range[1]);
             if (vlanEnd < vlanStart)
                 throw new FlowspaceException("Invalid flowspace");
-            flowspace.addDataLayerVlan(vlanStart, (short) (vlanEnd - vlanStart)); 
+            if (!isDelegation)
+                flowspace.addDataLayerVlan(vlanStart, (short) (vlanEnd - vlanStart)); 
+            else
+                flowspace.blockDataLayerVlan(vlanStart, (short) (vlanEnd - vlanStart));
         } else if (ETHERTYPE_OFFSET.encloses(mask)) {
 			if (tokens[0].matches("-[0-9]+[ ]*-[ ]*-[0-9]+")) {
 				range = new String[2];
@@ -1650,7 +1674,10 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 			}
 
 			if (range.length==1){
-				flowspace.addDataLayerType((short)Integer.parseInt(tokens[0].trim()));
+                if (!isDelegation)
+				    flowspace.addDataLayerType((short)Integer.parseInt(tokens[0].trim()));
+                else 
+                    flowspace.blockDataLayerType((short)Integer.parseInt(tokens[0].trim()));
 			} else if(range.length==2){
 				// will take care of this later
 			}
@@ -1663,13 +1690,19 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 int srcIP = Integer.valueOf(tokens[0]);
 				byte ofMask = (byte) (31 - (maskEnd-maskStart));
-                flowspace.addNetworkSource(srcIP << ofMask, ofMask);
+                if (!isDelegation)
+                    flowspace.addNetworkSource(srcIP << ofMask, ofMask);
+                else
+                    flowspace.blockNetworkSource(srcIP << ofMask, ofMask);
         } else if (IP_DST_OFFSET.encloses(mask)) {
                 if (tokens[0].indexOf('-') > 0)
                     throw new FlowspaceException("Invalid flowspace formart encountered");
                 int dstIP = Integer.valueOf(tokens[0]);
 				byte ofMask = (byte) (31 - (maskEnd-maskStart));
-                flowspace.addNetworkDestination(dstIP << ofMask, ofMask);
+                if (!isDelegation)
+                    flowspace.addNetworkDestination(dstIP << ofMask, ofMask);
+                else
+                    flowspace.blockNetworkDestination(dstIP << ofMask, ofMask);
         } else if (TP_SRC_OFFSET.encloses(mask)) {
                 if (tokens[0].indexOf('-') > -1)
                     throw new FlowspaceException("Invalid flowspace formart encountered");

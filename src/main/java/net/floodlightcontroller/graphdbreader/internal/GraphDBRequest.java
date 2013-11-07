@@ -24,53 +24,36 @@ import org.renci.doe.pharos.flow.Rules;
 
 public class GraphDBRequest implements IGraphDBRequest
 {
-    protected Map <Long, String> domainMapper;
-    protected Map <NodePortTuple, IOFFlowspace[]>  flowspace;
-    protected Map <Link, Rules> ruleTransTables;
-    protected List<Link> links;
-	protected Set<Long> switches;
-	protected DelegatedMAC mac;
+    /*protected Map <NodePortTuple, IOFFlowspace[]>  flowspace;
+	protected Set<Long> switches;*/
+	
+	List<DelegatedMAC> blockedList;
 
     public GraphDBRequest ()
     {
 
     }
 
-    public GraphDBRequest (Map <Long, String> domainMapper,
-                            Map <NodePortTuple, IOFFlowspace[]>  flowspace,
-                            Map <Link, Rules> ruleTransTables,
-                            List<Link> links,
-							Set<Long> switches,
-							DelegatedMAC mac)
+    public GraphDBRequest (List<DelegatedMAC> blockedList)
     {
         this();
-        this.domainMapper = domainMapper;
-        this.flowspace = flowspace;
-        this.ruleTransTables = ruleTransTables;
-        this.links = links;
-		this.switches = switches;
-		this.mac = mac;
+        this.blockedList = blockedList;
     }
 
-    public Map <Long, String> getDomainMapper ()
-    {
-        return this.domainMapper;
-    }
+	public List<DelegatedMAC> getBlockedSrcMACList()
+	{
+		return this.blockedList;
+	}
 
+	public void setBlockedSrcMACList (List<DelegatedMAC> list)
+	{
+		this.blockedList = list;
+	}
+	/*
     public Map <NodePortTuple, IOFFlowspace[]> getDomainFlowspace ()
     {
         return this.flowspace;
 
-    }
-
-    public Map <Link, Rules> getRuleTransTables()
-    {
-        return this.ruleTransTables;
-    }
-
-    public List<Link> getLinks()
-    {
-        return this.links;    
     }
 
 	public Set<Long> getSwitches()
@@ -78,39 +61,15 @@ public class GraphDBRequest implements IGraphDBRequest
 		return this.switches;
 	}
 
-    public void setDomainMapper (Map <Long, String> domainMapper)
-    {
-        this.domainMapper = domainMapper;
-    }
-
     public void setDomainFlowspace (Map <NodePortTuple, IOFFlowspace[]> flowspace)
     {
         this.flowspace = flowspace;
 
     }
 
-    public void setRuleTransTables(Map <Link, Rules> table)
-    {
-        this.ruleTransTables = table;
-    }
-
-    public void setLinks(List<Link> links)
-    {
-        this.links = links;    
-    }
-
 	public void setSwitches(Set<Long> switches)
 	{
 		this.switches = switches;
-	}
+	}*/
 
-	public void setDelegatedMAC(DelegatedMAC mac)
-	{
-		this.mac = mac;
-	}
-
-	public DelegatedMAC getDelegatedMAC() 
-	{
-		return this.mac;
-	}
 }

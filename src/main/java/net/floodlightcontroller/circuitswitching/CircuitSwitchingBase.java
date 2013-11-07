@@ -38,6 +38,7 @@ import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.OFMessageDamper;
 import net.floodlightcontroller.util.TimedCache;
+import net.floodlightcontroller.util.DelegatedMAC;
 import net.floodlightcontroller.keyvaluestore.IKeyValueStoreService;
 
 import org.openflow.protocol.OFType;
@@ -70,6 +71,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Queue;
+import java.util.PriorityQueue;
 
 public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                              IOFMessageListener,
@@ -91,6 +94,8 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     protected IKeyValueStoreService kvStoreClient;
 
     protected OFMessageDamper messageDamper;
+
+    protected Queue<DelegatedMAC> blockedSrcMACList;
 
     // for broadcast loop suppression
     protected boolean broadcastCacheFeature = true;
@@ -143,7 +148,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     public void addedSwitch (IOFSwitch sw)
     {
         long dpID = sw.getId();
-        CircuitIDGen obj = new CircuitIDGen(dpID); 
+        CircuitIDGen obj = new CircuitIDGen(); 
 
         if (obj == null) {
             if (logger.isDebugEnabled())
@@ -179,8 +184,18 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
 
     }
 
+    public void addBlockedSrcMACList (List<DelegatedMAC> list)
+    {   
+        synchronized (blockedSrcMACList) {
+            for (DelegatedMAC mac: list) {
+                if (!blockedSrcMACList.contains(mac))
+                    blockedSrcMACList.add(mac);
+            }
+        }
+    }
+
     // ICircuitSwitchingService
-    public LinkedList<byte[]> getPathID (long srcID, long dstID, long cookie) 
+    public LinkedList<byte[]> getPathID (long srcID, long dstID, long cookie) throws Exception
     {
         boolean isSrcRooted = false;
         CircuitIDGen cidGen = null;
@@ -201,8 +216,31 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                          + "switch {} {}", srcID, dstID);
             return (null);
         }
-        long circuitID = cidGen.getCircuitID();
+        long circuitID = getAvailableSrcMAC(cidGen);
+        
         return (getBytes(dstID, srcID, circuitID, isSrcRooted));
+    }
+
+
+    private long getAvailableSrcMAC (CircuitIDGen cidGen) throws Exception
+    {
+        long circuitID = 0L;
+        DelegatedMAC mac = new DelegatedMAC();    
+        int indx = 0;   
+ 
+        circuitID = cidGen.getCircuitID();
+        mac.setBaseAddress(circuitID);
+        Object[] array = blockedSrcMACList.toArray();
+        for (indx = 0; indx < array.length; indx++) {
+            DelegatedMAC match = (DelegatedMAC) array[indx];
+            if (match.equals(mac)) {
+                int endBit = match.getEnd();
+                long val = 1L << endBit + 1;
+                circuitID += val;
+                mac.setBaseAddress(circuitID);
+            }
+        }
+        return circuitID;
     }
 
     // IOFMessageListener methods
@@ -992,6 +1030,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 EnumSet.of(OFType.FLOW_MOD),
                 OFMESSAGE_DAMPER_TIMEOUT);
         activeSwitches = new ConcurrentHashMap<Long, CircuitIDGen>();
+        blockedSrcMACList = new PriorityQueue<DelegatedMAC> (); 
     } 
 
     public void startUp()

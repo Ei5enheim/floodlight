@@ -79,6 +79,7 @@ public interface IOFFlowspace
     public IOFFlowspace setDataLayerDst (List<DelegatedMAC> dataLayerDst);
     public IOFFlowspace addDataLayerDst (long macAddress);
 	public IOFFlowspace addDataLayerDst (long macAddress, int start, int end);
+	public IOFFlowspace addDataLayerDst (long macAddress, int start, int end, boolean add);
     public IOFFlowspace addDataLayerDst (byte[] macAddress);
     public IOFFlowspace blockDataLayerDst (long macAddress);
 	public IOFFlowspace blockDataLayerDst (long macAddress, int start, int end);
@@ -96,6 +97,7 @@ public interface IOFFlowspace
     public IOFFlowspace setDataLayerSrc (List<DelegatedMAC> dataLayerSource);
     public IOFFlowspace addDataLayerSrc (long macAddress);
 	public IOFFlowspace addDataLayerSrc (long macAddress, int start, int end);
+	public IOFFlowspace addDataLayerSrc (long macAddress, int start, int end, boolean add);
     public IOFFlowspace addDataLayerSrc (byte[] macAddress);
     public IOFFlowspace blockDataLayerSrc (long macAddress);
 	public IOFFlowspace blockDataLayerSrc (long macAddress, int start, int end);

@@ -286,7 +286,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
     }
 
     private LinkedList<byte[]> addRGetPathID (long dstSwID, long srcSwID,
-                                                int cookie) 
+                                                int cookie) throws Exception
     {
         boolean result = false;
         String key = String.valueOf(dstSwID) + "," + String.valueOf(srcSwID);
@@ -328,7 +328,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
     }
    
     private LinkedList<OFMatch> getMatchList (OFPacketIn pi, long dstSwId, long srcSwId,
-                                              LinkedList<byte[]> rwHeaders)
+                                              LinkedList<byte[]> rwHeaders) throws Exception
     {
         LinkedList<OFMatch> matchList = new LinkedList<OFMatch>(); 
         LinkedList<byte[]> dlHeader = null;
@@ -514,9 +514,14 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                             } else { 
 
                                 rwHeaders = new LinkedList<byte[]>();
-                                matchList = getMatchList(pi, dstDap.getSwitchDPID(), 
-                                                        srcDap.getSwitchDPID(), 
-                                                        rwHeaders);
+                                try {
+                                    matchList = getMatchList(pi, dstDap.getSwitchDPID(), 
+                                                            srcDap.getSwitchDPID(), 
+                                                            rwHeaders);
+                                } catch (Exception e) {
+                                    log.trace ("caught an exception in getMatchList {}", e);
+                                    return;
+                                }
                                 if (log.isTraceEnabled()) {
                                     log.trace("pushCircuit match={} route={} " +
                                               "destination={}:{}",

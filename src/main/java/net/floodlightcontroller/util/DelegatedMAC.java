@@ -24,7 +24,7 @@ import net.floodlightcontroller.util.MACAddress;
  *
  * @author Rajesh Gopidi
  */
-public class DelegatedMAC {
+public class DelegatedMAC implements Comparable<DelegatedMAC> {
 
     public static final int MAC_ADDRESS_LENGTH = 6;
 	private long baseAddress;
@@ -122,5 +122,28 @@ public class DelegatedMAC {
 			return true;
 		
 		return false;
+	}
+	
+	public int compareTo (DelegatedMAC obj)
+	{
+		if (obj.getEnd() > end) {
+			return -1;
+		} else if (obj.getEnd() < end) {
+			return 1;
+		} else {
+			if (obj.getStart() > start) {
+				return 1;
+			} else if (obj.getStart() < start) {
+				return -1;
+			} else {
+				if (obj.getBaseAddress() > baseAddress) {
+					return -1;
+				} else if (obj.getBaseAddress() < baseAddress) {
+					return 1;
+				} else {
+					return 0;
+				}
+			}
+		}
 	}
 }
