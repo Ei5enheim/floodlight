@@ -129,7 +129,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 				blockedDataLayerDestination.contains(baseAddress))
 				return null;
 		}
-		return (Long.valueOf(baseAddress));
+		return (Long.valueOf((baseAddress | LAdminMAC_MSK) & UCAST_MSK));
 	}
 
     /**
@@ -1697,4 +1697,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
     public static final Range <Integer> IP_DST_OFFSET = Range.closed(168, 199);
     public static final Range <Integer> TP_SRC_OFFSET = Range.closed(200, 215);
     public static final Range <Integer> TP_DST_OFFSET = Range.closed(216, 231);
+    private final long DPID_MSK = 0x0000FFFFFFFFFFFFL;
+    private final long LAdminMAC_MSK = 0x0000020000000000L;
+    private final long UCAST_MSK = 0xFFFFFEFFFFFFFFFFL;
 }

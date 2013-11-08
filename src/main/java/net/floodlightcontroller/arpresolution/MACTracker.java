@@ -33,6 +33,9 @@ import net.floodlightcontroller.util.TimedCache;
 import net.floodlightcontroller.util.MACAddress;
 import net.floodlightcontroller.counter.ICounterStoreService;
 import net.floodlightcontroller.keyvaluestore.IKeyValueStoreService;
+import net.floodlightcontroller.devicemanager.IDevice;
+import net.floodlightcontroller.devicemanager.IDeviceService;
+import net.floodlightcontroller.devicemanager.SwitchPort;
 
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
@@ -51,6 +54,7 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
     protected IFloodlightProviderService floodlightProvider;
     protected ICounterStoreService counterStore;
     protected IKeyValueStoreService kvStoreService;
+	protected IDeviceService deviceManager;
     protected OFMessageDamper messageDamper;
     protected static Logger logger;
     byte[] destIP, sourceIP, sourceMAC, dstMAC;
@@ -102,7 +106,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         collection.add(IFloodlightProviderService.class);
         collection.add(IKeyValueStoreService.class);
         collection.add(ICounterStoreService.class);
-	return (collection);
+		collection.add(IDeviceService.class);
+		return (collection);
     }
 
     @Override
@@ -114,6 +119,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         counterStore =
                 context.getServiceImpl(ICounterStoreService.class);
         kvStoreService = context.getServiceImpl(IKeyValueStoreService.class);
+		deviceManager = context.getServiceImpl(IDeviceService.class);
+		
     }
 
     @Override
@@ -154,6 +161,15 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
         }
         return true;
     }
+
+	private SwitchPort getSwitchPort(IDevice device)
+    {
+		if (device.getAttachmentPoints().length == 1) 
+        	return device.getAttachmentPoints()[0];
+		else
+			return (null);
+    }
+
     /*  This is the method called by the controlller to tell the 
      *  recvrs about the packet_in message
      *  FloodlightContext has a storage field where the payload
@@ -177,7 +193,23 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                         dstMAC = getDstMAC(IPv4.toIPv4Address(destIP)); 
                         if (dstMAC == null)
                             return Command.CONTINUE;
-                    }
+                    } else {
+						logger.trace("** Received an ARP packet that needs to be routed to the origin");
+						IDevice dstDevice = IDeviceService.fcStore.
+                    							get(cntx, IDeviceService.CONTEXT_DST_DEVICE);
+						SwitchPort swPort = getSwitchPort(dstDevice);
+						if (dstDevice != null && swPort != null) {
+							sw = floodlightProvider.getSwitches().get(swPort.getSwitchDPID());
+							if (sw == null) {
+								logger.trace("** Not able to find the switch to forward the ARP packet, dropping the packet");
+								return Command.STOP;
+							}
+							((OFPacketIn)msg).setInPort((short)(swPort.getPort() & 0x00FFFF));
+						} else {
+							logger.trace("** Looks like Device is not registered. Flooding the packet");
+							return Command.CONTINUE;
+						}						
+					}
                     //exchanging source and dest fields in the recvd request
                     arp_pkt = arp_pkt.setSenderHardwareAddress(dstMAC); 
                     arp_pkt = arp_pkt.setTargetHardwareAddress(sourceMAC);

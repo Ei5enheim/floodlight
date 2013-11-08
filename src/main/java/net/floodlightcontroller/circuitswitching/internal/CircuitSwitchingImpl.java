@@ -362,6 +362,16 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
         return (false);
     }
 
+	private boolean checkIfARP (OFPacketIn pi, FloodlightContext cntx) 
+	{
+		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
+                                IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+		if (eth.getEtherType() == Ethernet.TYPE_ARP)
+			return true;
+		else
+			return false;
+	}
+
     protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi, 
                                  FloodlightContext cntx,
                                  boolean requestFlowRemovedNotifn)
@@ -389,6 +399,10 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                           sw.getStringId(), pi.getInPort());
                 return;
             }
+
+			if (checkIfARP(pi, cntx)) {
+				doFlood(sw, pi, cntx);
+			}
             
             //TODO remove this check if possible
             if (!checkForAP(srcDevice, sw)) {
@@ -457,6 +471,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                 wildcard_hints = ((Integer) sw.getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
                                                 .intValue()
                                                 & ~OFMatch.OFPFW_IN_PORT
+												& ~OFMatch.OFPFW_DL_TYPE
                                                 & ~OFMatch.OFPFW_DL_VLAN
                                                 & ~OFMatch.OFPFW_DL_SRC
                                                 & ~OFMatch.OFPFW_DL_DST
@@ -525,7 +540,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
 						wildCards_List.addFirst(wildcard_hints);
 						// match only the pathID except at the source switch
 						wildcard_hints = new Integer(wildcard_hints);
-						wildcard_hints = wildcard_hints.intValue() | OFMatch.OFPFW_DL_VLAN
+						wildcard_hints = wildcard_hints.intValue()  | OFMatch.OFPFW_DL_VLAN
 																	| OFMatch.OFPFW_NW_SRC_MASK
                                              						| OFMatch.OFPFW_NW_DST_MASK;
 						wildCards_List.addFirst(wildcard_hints);
