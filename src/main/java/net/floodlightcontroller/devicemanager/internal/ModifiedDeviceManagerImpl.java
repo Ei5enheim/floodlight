@@ -256,12 +256,12 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
                 fcStore.put(cntx, CONTEXT_DST_DEVICE, dstDevice);
         }
 
-       //if (logger.isTraceEnabled()) {
+       /*if (logger.isTraceEnabled()) {
            logger.info("Received PI: {} on switch {}, port {} *** eth={}" +
                         " *** srcDev={} *** dstDev={} *** ",
                         new Object[] { pi, sw.getStringId(), pi.getInPort(), eth,
                         srcDevice, dstDevice });
-       //}
+       }*/
         return Command.CONTINUE;
     }
 }

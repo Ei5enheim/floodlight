@@ -295,7 +295,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
         // values are going to be in an array and they are going 
         // to be in pairs [dstmac followed by the source]
         long srcMac = 0, dstMac = 0;
-        
+        log.trace("Key used for pathID lookup: {}", key);	
         if (valuesList == null)
             valuesList = new ArrayList<Object>();
 

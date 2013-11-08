@@ -300,8 +300,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         startServer();
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
         updatesTask = new SingletonTask(ses, new UpdatesThread(ses));
-		updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
         initInterDomainLinks();
+        updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
         interDomainLock = new Object();
         /*interDomainLinks = new GraphDBRequest();
         interDomainLinks.setRuleTransTables(new ConcurrentHashMap <Link, Rules>());

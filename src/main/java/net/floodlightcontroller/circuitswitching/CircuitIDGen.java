@@ -75,9 +75,9 @@ public class CircuitIDGen
 		long circuitID = 0L;
 		long count = 0;
         synchronized (lock) {
-            circuitCount++;
-			count = circuitCount;
-			if (circuitCount >= (1L << (endBit-startBit + 1)));
+            //circuitCount++;
+			count = circuitCount++;
+			if (count >= (1L << (endBit-startBit + 1)));
 				//throw an Exception
         } 
 		circuitID = (baseAddress & (~((0x1L << endBit+1) - 0x1L)
