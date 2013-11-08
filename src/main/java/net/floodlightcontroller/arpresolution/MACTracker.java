@@ -197,8 +197,9 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
 						logger.trace("** Received an ARP packet that needs to be routed to the origin");
 						IDevice dstDevice = IDeviceService.fcStore.
                     							get(cntx, IDeviceService.CONTEXT_DST_DEVICE);
-						SwitchPort swPort = getSwitchPort(dstDevice);
-						if (dstDevice != null && swPort != null) {
+						
+						if (dstDevice != null && getSwitchPort(dstDevice) != null) {
+							SwitchPort swPort = getSwitchPort(dstDevice);
 							sw = floodlightProvider.getSwitches().get(swPort.getSwitchDPID());
 							if (sw == null) {
 								logger.trace("** Not able to find the switch to forward the ARP packet, dropping the packet");
