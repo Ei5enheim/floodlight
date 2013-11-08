@@ -1586,6 +1586,8 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 
     public static IOFFlowspace parseFlowspaceString (String flowspaceDef) throws FlowspaceException
     {
+		if (flowspaceDef == null)
+			return null;
         IOFFlowspace flowspace = new OFFlowspace();
 		String delims="[ ]*\\^[ ]*";
         String[] tokens = flowspaceDef.split(delims);
