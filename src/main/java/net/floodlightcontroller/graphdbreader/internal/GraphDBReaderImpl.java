@@ -226,23 +226,25 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         }
                     }
                 }
-                synchronized (interDomainLinks) {
-                    switches = new HashSet(interDomainLinks.getSwitches());
-                    links = new ArrayList(interDomainLinks.getLinks());
-                    tables = new ConcurrentHashMap <Link, Rules>(interDomainLinks.getRuleTransTables());
-                }
-                if (floodlightProvider.allPresent(switches)) {
-                    IGraphDBRequest newReq = new GraphDBRequest(null, null,
+				if (!interDomainLinks.getSwitches().isEmpty()) {
+                	synchronized (interDomainLinks) {
+                    	switches = new HashSet(interDomainLinks.getSwitches());
+                    	links = new ArrayList(interDomainLinks.getLinks());
+                    	tables = new ConcurrentHashMap <Link, Rules>(interDomainLinks.getRuleTransTables());
+                	}
+                	if (floodlightProvider.allPresent(switches)) {
+                    	IGraphDBRequest newReq = new GraphDBRequest(null, null,
                                                                 tables, links, switches, null);
-                    synchronized (interDomainLinks) {
-                        interDomainLinks.getLinks().removeAll(links);
-                        interDomainLinks.getSwitches().removeAll(switches);
-                        for (Link link: tables.keySet())
-                            tables.remove(link);
-                    }
-                    InterDomainWorkerThread worker = new InterDomainWorkerThread(newReq, ses);
-                    ses.execute(worker);
-                }
+                    	synchronized (interDomainLinks) {
+                        	interDomainLinks.getLinks().removeAll(links);
+                        	interDomainLinks.getSwitches().removeAll(switches);
+                        	for (Link link: tables.keySet())
+                            	tables.remove(link);
+                    	}
+                    	InterDomainWorkerThread worker = new InterDomainWorkerThread(newReq, ses);
+                    	ses.execute(worker);
+                	}
+				}
             } catch (Exception e) {
                 logger.trace("caugth an Exception in Updates Task, GraphDBReader: {}", e); 
             } finally {
