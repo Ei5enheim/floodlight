@@ -38,11 +38,11 @@ public class NodePortTuplePlusPkt
 	{
 		final int prime = 5557;
 		int result = 1;
-		System.out.println("Calling hashCode from NPTPP");
+		//System.out.println("Calling hashCode from NPTPP");
 		int swHash = swPort.hashCode();
 		int pktHash =  pkt.hashCode();
-		System.out.println("switch Port hashcode:" + swHash);
-		System.out.println("pkt Hash code: " + pktHash);
+		//System.out.println("switch Port hashcode:" + swHash);
+		//System.out.println("pkt Hash code: " + pktHash);
 		result = prime * result + swHash;
 		result = prime * result + pktHash;
 		return result;

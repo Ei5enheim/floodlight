@@ -198,7 +198,7 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
 					logger.trace("resettin store {} url{}", storeName, map.get(index));
 					admin.main(args);
 				} catch (Exception e) {
-						logger.trace("***** caught an Exception while trying to clean stores in Voldemort *****");
+						logger.trace("***** caught an Exception while trying to reset stores in Voldemort *****");
 						e.printStackTrace();
 				}
 				if (index > map.size()-1)

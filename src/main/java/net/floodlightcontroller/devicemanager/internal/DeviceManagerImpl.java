@@ -798,6 +798,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                         " *** srcDev={} *** dstDev={} *** ",
                         new Object[] { pi, sw.getStringId(), pi.getInPort(), eth,
                         srcDevice, dstDevice });
+			
        }
         return Command.CONTINUE;
     }
@@ -828,16 +829,19 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
      * @param dlAddr
      * @return
      */
-    private int getSrcNwAddr(Ethernet eth, long dlAddr) {
+    private int getSrcNwAddr(Ethernet eth, long dlAddr)
+	{
         if (eth.getPayload() instanceof ARP) {
             ARP arp = (ARP) eth.getPayload();
             // ARP packet contains source's MAC address as well as IP address
-	    logger.info("packet protocol type {}, compare against {}, hw addr {}, {}", new Object[] {arp.getProtocolType(), 								ARP.PROTO_TYPE_IP,
+			logger.trace("Learning source entity details from ARP packet");
+	    	/*logger.info("packet protocol type {}, compare against {}, hw addr {}, {}", 
+							new Object[] {arp.getProtocolType(), ARP.PROTO_TYPE_IP,
 							Ethernet.toLong(arp.getSenderHardwareAddress()),
-							dlAddr});
+							dlAddr});*/
             if ((arp.getProtocolType() == ARP.PROTO_TYPE_IP) &&
                     (Ethernet.toLong(arp.getSenderHardwareAddress()) == dlAddr)) {
-		logger.info("returning the source protocol address");
+				logger.info("Returning the source protocol address");
                 return IPv4.toIPv4Address(arp.getSenderProtocolAddress());
             }
         } 
@@ -863,7 +867,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
 
         short vlan = eth.getVlanID();
         int nwSrc = getSrcNwAddr(eth, dlAddr);
-	logger.info("source network address is {}", nwSrc);
+		//logger.info("source network address is {}", nwSrc);
         return new Entity(dlAddr,
                           ((vlan >= 0) ? vlan : null),
                           ((nwSrc != 0) ? nwSrc : null),

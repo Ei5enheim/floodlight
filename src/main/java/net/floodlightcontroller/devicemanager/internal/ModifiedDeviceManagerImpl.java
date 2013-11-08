@@ -194,22 +194,22 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
 
         IP = node.getIpv4Address();
         if (IP == null) {
-	    logger.info("ip address is null");
+	    	logger.info("ip address is null, not able to update ARP table");
             return;
-	}
+		}
 
-	if (node.getMacAddress() == 0) {
-	    logger.info("dst MAC address is null");
-	    return;
-	}
+		if (node.getMacAddress() == 0) {
+	    	logger.info("dst MAC address is null, not able to update ARP table");
+	    	return;
+		}
 
         int key = IP;
-	//IPv4.toIPv4Address(IP);
+		//IPv4.toIPv4Address(IP);
         String domainID = getDomain(key); 
         String macAddr = MACAddress.valueOf(node.getMacAddress()).toString(); 
        
-        //if (logger.isTraceEnabled()) 
-            logger.info ("updating the key {}, IP: {} with value: {}",
+        if (logger.isTraceEnabled()) 
+            logger.trace ("updating the key {}, IP: {} with value: {}",
                          new Object[] {key, IPv4.fromIPv4Address(IP), macAddr}); 
         result = kvStoreService.addRUpdate(ARPTableName, key, macAddr+","+domainID); 
         if (!result && logger.isDebugEnabled())
@@ -225,10 +225,13 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
         // Extract source entity information
         Entity srcEntity =
                 getSourceEntityFromPacket(eth, sw.getId(), pi.getInPort());
+
+		logger.trace("Received PI: {} on switch {}, port {} *** eth={}",
+                        new Object[] {pi, sw.getStringId(), pi.getInPort(), eth});
         if (srcEntity == null)
             return Command.STOP;
 
-        logger.info ("updating the source entity details");
+        //logger.info ("updating the source entity details");
         updateARPTable(srcEntity);
 
         // Learn/lookup device information
@@ -255,7 +258,7 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
             if (dstDevice != null)
                 fcStore.put(cntx, CONTEXT_DST_DEVICE, dstDevice);
         }
-
+		logger.trace("**** Received PI: from srcDev={}, target dstDev={} *** ", srcDevice, dstDevice);
        /*if (logger.isTraceEnabled()) {
            logger.info("Received PI: {} on switch {}, port {} *** eth={}" +
                         " *** srcDev={} *** dstDev={} *** ",

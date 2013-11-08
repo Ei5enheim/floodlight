@@ -173,14 +173,14 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                                                         pktIn.getInPort()),
                                                                 		eth);
 
-		log.trace("Received a packet {}", eth);
+		/*log.trace("Received a packet {}", eth);*/
 		//log.trace("*** recvd pktin inport{}, inswitch {} hash {}",
 			//new Object[]{pktIn.getInPort(), sw.getId(), key.hashCode()});
 	
         if (map.containsKey(key)) {
             TopoLock lock = map.remove(key);
             if (lock != null) {
-				log.trace("incrementing count");
+				//log.trace("incrementing count");
                 lock.incrVerifiedCnt();
                 if (lock.checkValidationStatus()) {
 		    		log.trace("Finished validating the topology ");
