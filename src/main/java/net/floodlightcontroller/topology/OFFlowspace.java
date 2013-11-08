@@ -107,24 +107,26 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 	private Long getMACAddress(DelegatedMAC mac, boolean isSrc)
 	{
 		long baseAddress = mac.getBaseAddress();
-		int start = mac.getStart();
-		int end = mac.getEnd();
+		int startBit = mac.getStart();
+		int endBit = mac.getEnd();
 		
-		if (end < start)
+		if (endBit < startBit)
 			return Long.valueOf(baseAddress);
 
-		long mask = ~((0x1L << end+1) - 0x1L) | ((0x1L << start) - 0x1L);
+		long mask = ~((0x1L << endBit+1) - 0x1L) | ((0x1L << startBit) - 0x1L);
 		mask = ~mask;
 
 		baseAddress = baseAddress & mask;
-		long rndmValue = ThreadLocalRandom.current().nextLong(0, (1 << (end-start+1)));
-		rndmValue = rndmValue << start;
+		long rndmValue = ThreadLocalRandom.current().nextLong(0, (1 << (endBit-startBit+1)));
+		rndmValue = rndmValue << startBit;
 		baseAddress = baseAddress | rndmValue;
 		if (isSrc) {
-			if (blockedDataLayerSource.contains(baseAddress))
+			if (blockedDataLayerSource != null && 
+				blockedDataLayerSource.contains(baseAddress))
 				return null;
 		} else {
-			if (blockedDataLayerDestination.contains(baseAddress))
+			if (blockedDataLayerDestination != null && 
+				blockedDataLayerDestination.contains(baseAddress))
 				return null;
 		}
 		return (Long.valueOf(baseAddress));
