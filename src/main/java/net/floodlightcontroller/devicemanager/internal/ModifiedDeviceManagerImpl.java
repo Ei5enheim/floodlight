@@ -218,10 +218,15 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
 
     protected Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi,
                                              FloodlightContext cntx) {
+
         Ethernet eth =
                 IFloodlightProviderService.bcStore.
                 get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
+       //if (logger.isTraceEnabled()) {
+           logger.info("Received PI: {} on switch {}, port {} *** eth={}",
+                        new Object[] { pi, sw.getStringId(), pi.getInPort(), eth});
+       //}
         // Extract source entity information
         Entity srcEntity =
                 getSourceEntityFromPacket(eth, sw.getId(), pi.getInPort());
@@ -255,13 +260,9 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
             if (dstDevice != null)
                 fcStore.put(cntx, CONTEXT_DST_DEVICE, dstDevice);
         }
-
-       //if (logger.isTraceEnabled()) {
-           logger.info("Received PI: {} on switch {}, port {} *** eth={}" +
+           logger.info("Received PI, device entity details" +
                         " *** srcDev={} *** dstDev={} *** ",
-                        new Object[] { pi, sw.getStringId(), pi.getInPort(), eth,
-                        srcDevice, dstDevice });
-       //}
+                        srcDevice, dstDevice);
         return Command.CONTINUE;
     }
 }
