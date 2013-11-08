@@ -43,6 +43,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.versioning.Versioned;
 import voldemort.versioning.Version;
+import voldemort.VoldemortAdminTool;
 
 // use the update from Idevicemanager to find a device and use the hash table to get the domain ID.
 // need to change the forwarding code
@@ -182,6 +183,30 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
         return (map.get(index));
     }
 
+	private void resetStores()
+	{
+		VoldemortAdminTool admin = new VoldemortAdminTool();
+		int index = 0;
+		String[] args = new String[4];
+		if (map.size() > 0) {
+			args[0] = "--truncate";
+			args[2] = "--url";
+			for (String storeName: storeNames) {
+				args[1] = storeName;
+				args[3] = map.get(index);
+				try {
+					logger.trace("resettin store {} url{}", storeName, map.get(index));
+					admin.main(args);
+				} catch (Exception e) {
+						logger.trace("***** caught an Exception while trying to clean stores in Voldemort *****");
+						e.printStackTrace();
+				}
+				if (index > map.size()-1)
+					index = 0;			
+			}
+		}
+	}
+
     void bootStrapClients()
     {
         String bootstrapUrl = null;
@@ -191,6 +216,8 @@ public class VoldemortClientImpl implements IKeyValueStoreService,
         buildStoreMap();
         buildMap();
 
+		resetStores();
+	
         client = new DefaultStoreClient[STORES][SERVERS];
 
         for (int j = 0; j < SERVERS; j++) {

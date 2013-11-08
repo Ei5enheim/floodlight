@@ -94,6 +94,11 @@
 	<include name="commons-beanutils-bean-collections-1.8.3.jar"/>
     <include name="commons-httpclient-3.1.jar" />
 	<include name="ws-commons-util-1.0.2.jar" />
+	<include name="jopt-simple-3.1.jar" />
+	<include name="junit-4.6.jar"/>
+	<include name="ant-1.9.2.jar"/>
+	<include name="junit-addons-1.4.jar" />
+	<include name="junit-4.11.jar" />
     </patternset>
 
     <path id="classpath">
