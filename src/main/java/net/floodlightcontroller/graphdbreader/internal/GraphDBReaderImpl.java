@@ -302,12 +302,12 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 //System.out.println("[Ingress] Flowspace: " 
                 //        + inNode.getProperty("Flowspace"));
                 flowspace.get(headSwitchPort)[INGRESS] = OFFlowspace.parseFlowspaceString(
-                        (String) inNode.getProperty("Delegated"), true);
+                        (String) inNode.getProperty("Delegated"), false);
             } else {
                 //System.out.println("[Egress] Flowspace: "
                 //        + inNode.getProperty("Flowspace"));
                 flowspace.get(headSwitchPort)[EGRESS] = OFFlowspace.parseFlowspaceString(
-                        (String)inNode.getProperty("Delegated"), true);
+                        (String)inNode.getProperty("Delegated"), false);
             }
         }
         if (!vertices.contains(outNode)&&
