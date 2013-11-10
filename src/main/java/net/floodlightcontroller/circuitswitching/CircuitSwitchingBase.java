@@ -841,7 +841,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
 
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, po);
-            messageDamper.write(sw, po, cntx);
+            messageDamper.write(sw, po, cntx, true);
         } catch (IOException e) {
             logger.error("Failure writing packet out", e);
         }

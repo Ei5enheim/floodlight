@@ -206,8 +206,8 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
 								return Command.STOP;
 							}
 							((OFPacketIn)msg).setInPort((short)(swPort.getPort() & 0x00FFFF));
-							pushPacket(sw, msg, cntx, IPv4.toIPv4Address(sourceIP), 
-                                		IPv4.toIPv4Address(destIP));
+							pushPacket(sw, msg, cntx, IPv4.toIPv4Address(destIP), 
+										IPv4.toIPv4Address(sourceIP));
                     		return Command.STOP;
 						} else {
 							logger.trace("** Looks like Device is not registered. Flooding the packet");
@@ -266,7 +266,7 @@ public class MACTracker implements IOFMessageListener, IFloodlightModule
                 counterStore.updateFlush();
                 if (logger.isDebugEnabled()) {
                     logger.debug("sent out ARP reply for the destination IP {} to the host"+
-                                 " source IP {}", IPv4.fromIPv4Address(dstIP),
+                                 " [ IP {} ]", IPv4.fromIPv4Address(dstIP),
                                  IPv4.fromIPv4Address(srcIP));
                 }
             }
