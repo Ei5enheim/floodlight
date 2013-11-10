@@ -92,7 +92,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             this.topoSlice = topoSlice;
             this.ses = ses;
             floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
-            lock = topoValidator.validateTopology(topoSlice.getLinks(),
+            lock = topoValidator.validateTopology(new ArrayList<Link>(topoSlice.getLinks()),
                                                 topoSlice.getRuleTransTables(), false);
         }
 
@@ -142,7 +142,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             floodlightProvider.addFlowspace(topoSlice.getDomainFlowspace());
             floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
             floodlightProvider.addDomainMapper(topoSlice.getDomainMapper());
-            lock = topoValidator.validateTopology(topoSlice.getLinks(),
+            lock = topoValidator.validateTopology(new ArrayList<Link>(topoSlice.getLinks()),
                                                 topoSlice.getRuleTransTables(), false);
         }
 
@@ -199,7 +199,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         public void run()
         {
             int indx = 0;
-            List<Link> links = null; 
+            Set<Link> links = null; 
             List<IGraphDBRequest> clone = null;
             Set<Long> switches = null;
             Map<Link, Rules> tables = null;
@@ -229,7 +229,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 				if (!interDomainLinks.getSwitches().isEmpty()) {
                 	synchronized (interDomainLinks) {
                     	switches = new HashSet(interDomainLinks.getSwitches());
-                    	links = new ArrayList(interDomainLinks.getLinks());
+                    	links = new HashSet(interDomainLinks.getLinks());
                     	tables = new ConcurrentHashMap <Link, Rules>(interDomainLinks.getRuleTransTables());
                 	}
                 	if (floodlightProvider.allPresent(switches)) {
@@ -345,7 +345,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         Map <NodePortTuple, IOFFlowspace[]>  flowspace;
         Map <Link, Rules> ruleTransTables;
         DelegatedMAC srcMAC = null;
-        List<Link> links;
+        Set<Link> links;
         String localDomain = null;
         String fileName = getFileName();
         ByteArrayInputStream stream = null; 
@@ -358,7 +358,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         stream = new ByteArrayInputStream(xmlFile);
         flowspace = new ConcurrentHashMap <NodePortTuple, IOFFlowspace[]>();
         ruleTransTables = new ConcurrentHashMap <Link, Rules>();
-        links = new ArrayList<Link>();
+        links = new HashSet<Link>();
         domainMapper = new HashMap<Long, String>();
 
         Graph graph = new DexGraph(fileName);
@@ -401,7 +401,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     private String processEdge (Edge e, HashSet <Vertex> vertices,
             Set <Long> switches,
             List<Edge> pruneList,
-            List<Link> links,
+            Set<Link> links,
             Map <NodePortTuple, IOFFlowspace[]> flowspace,
             Map <Long, String> domainMapper,
             Map <Link, Rules> ruleTransTables,
@@ -450,6 +450,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             	    ruleTransTables.put(link, new Rules((String)e.getProperty("Rules")));
             } else {
                 interDomainLink = false;
+				// need to stop locking the data struture, instead create a local structure
+				// and all of them into global datastructure at once
                 synchronized (interDomainLinks) {
                     interDomainLinks.getLinks().add(link);
                     interDomainLinks.getSwitches().add(headDpid);
@@ -467,6 +469,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 inNode.getProperty("domain").equals(localDomain)) {
             	vertices.add(inNode);
             if (!switches.contains(headDpid)) {
+				//TODO when we have multiple requests for a single domain or two domains
+				// there is a possibility that switches are removed and inter domain links are still
+				// in the queue and verificaiton never happens
                 switches.add(headDpid);
                 //System.out.println("Vertex is " + inNode.getProperty("DPID") + ", " + inNode.getId());
                 domainMapper.put(headDpid, (String)inNode.getProperty("domain"));

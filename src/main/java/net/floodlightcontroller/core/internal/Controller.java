@@ -2129,16 +2129,20 @@ public class Controller implements IFloodlightProviderService,
 
     public boolean allPresent (Set<Long> switches)
     {
+		if (switches.isEmpty())
+			return false;		
+
 		Set<Long> clone = new HashSet<Long>(switches);
 
+		for (Long l: switches)
+            log.trace("verifying connectivity of switch: {}", l);
+
 		for (IOFSwitch sw: activeSwitches.values()) {
-			log.trace("switch: {}", sw.getId());
+			log.trace("switch: {} is active", sw.getId());
 			if (clone.contains(sw.getId())) {
 				clone.remove(sw.getId());
 			}
 		}
-		for (Long l: switches)
-            log.trace("Read switch: {}", l);
 
 		if (clone.isEmpty())
 			return (true);

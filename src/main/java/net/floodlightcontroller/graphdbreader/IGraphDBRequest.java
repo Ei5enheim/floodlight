@@ -26,12 +26,12 @@ public interface IGraphDBRequest
     public Map <Long, String> getDomainMapper ();
     public Map <NodePortTuple, IOFFlowspace[]> getDomainFlowspace ();
     public Map <Link, Rules> getRuleTransTables();
-    public List<Link> getLinks();
+    public Set<Link> getLinks();
 	public Set<Long> getSwitches();
     public void setDomainMapper (Map <Long, String> domainMapper);
     public void setDomainFlowspace (Map <NodePortTuple, IOFFlowspace[]> flowspace);
     public void setRuleTransTables(Map <Link, Rules> table);
-    public void setLinks(List<Link> links);
+    public void setLinks(Set<Link> links);
 	public void setSwitches(Set<Long> switches);
 	public void setDelegatedMAC(DelegatedMAC mac);
 	public DelegatedMAC getDelegatedMAC();

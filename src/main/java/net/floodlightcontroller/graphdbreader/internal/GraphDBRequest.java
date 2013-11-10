@@ -27,7 +27,7 @@ public class GraphDBRequest implements IGraphDBRequest
     protected Map <Long, String> domainMapper;
     protected Map <NodePortTuple, IOFFlowspace[]>  flowspace;
     protected Map <Link, Rules> ruleTransTables;
-    protected List<Link> links;
+    protected Set<Link> links;
 	protected Set<Long> switches;
 	protected DelegatedMAC mac;
 
@@ -39,7 +39,7 @@ public class GraphDBRequest implements IGraphDBRequest
     public GraphDBRequest (Map <Long, String> domainMapper,
                             Map <NodePortTuple, IOFFlowspace[]>  flowspace,
                             Map <Link, Rules> ruleTransTables,
-                            List<Link> links,
+                            Set<Link> links,
 							Set<Long> switches,
 							DelegatedMAC mac)
     {
@@ -68,7 +68,7 @@ public class GraphDBRequest implements IGraphDBRequest
         return this.ruleTransTables;
     }
 
-    public List<Link> getLinks()
+    public Set<Link> getLinks()
     {
         return this.links;    
     }
@@ -94,7 +94,7 @@ public class GraphDBRequest implements IGraphDBRequest
         this.ruleTransTables = table;
     }
 
-    public void setLinks(List<Link> links)
+    public void setLinks(Set<Link> links)
     {
         this.links = links;    
     }
