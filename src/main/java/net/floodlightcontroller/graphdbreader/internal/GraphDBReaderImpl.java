@@ -323,7 +323,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     {
         interDomainLinks = new GraphDBRequest();
         interDomainLinks.setRuleTransTables(new ConcurrentHashMap <Link, Rules>());
-        interDomainLinks.setLinks(new ArrayList<Link>());   
+        interDomainLinks.setLinks(new HashSet<Link>());   
         interDomainLinks.setSwitches(new HashSet<Long> ()); 
     }
 
