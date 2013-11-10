@@ -583,7 +583,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                                                 pi.getInPort()) == false) {
             if (log.isTraceEnabled()) {
                 log.trace("doFlood, drop broadcast packet, pi={}, " + 
-                          "from a blocked port, srcSwitch=[{},{}], linkInfo={}",
+                          "from a blocked port, srcSwitch=[{},{}]",
                           new Object[] {pi, sw.getId(),pi.getInPort()});
             }
             return;
