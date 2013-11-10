@@ -362,6 +362,16 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
         return (false);
     }
 
+    private boolean checkIfARP (OFPacketIn pi, FloodlightContext cntx)
+    {
+        Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
+                IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+        if (eth.getEtherType() == Ethernet.TYPE_ARP)
+            return true;
+        else
+            return false;
+    }
+
     protected void doForwardFlow(IOFSwitch sw, OFPacketIn pi, 
                                  FloodlightContext cntx,
                                  boolean requestFlowRemovedNotifn)
@@ -396,6 +406,11 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                             " switch {}*****", srcDevice, sw);
                 return;
             }
+
+            if (checkIfARP(pi, cntx)) {
+                doFlood(sw, pi, cntx);
+            }
+
             // Validate that we have a destination known on the same island
             // Validate that the source and destination are not on the same switchport
             boolean on_same_island = false;
@@ -457,6 +472,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
                 wildcard_hints = ((Integer) sw.getAttribute(IOFSwitch.PROP_FASTWILDCARDS))
                                                 .intValue()
                                                 & ~OFMatch.OFPFW_IN_PORT
+                                                & ~OFMatch.OFPFW_DL_TYPE
                                                 & ~OFMatch.OFPFW_DL_VLAN
                                                 & ~OFMatch.OFPFW_DL_SRC
                                                 & ~OFMatch.OFPFW_DL_DST

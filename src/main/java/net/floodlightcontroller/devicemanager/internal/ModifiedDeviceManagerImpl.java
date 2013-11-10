@@ -224,7 +224,7 @@ public class ModifiedDeviceManagerImpl extends DeviceManagerImpl {
                 get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
        //if (logger.isTraceEnabled()) {
-           logger.info("Received PI: {} on switch {}, port {} *** eth={}",
+           logger.info("Received PI: {} from switch {}, port {} *** eth={}",
                         new Object[] { pi, sw.getStringId(), pi.getInPort(), eth});
        //}
         // Extract source entity information

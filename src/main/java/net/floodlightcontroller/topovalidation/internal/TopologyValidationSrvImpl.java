@@ -179,7 +179,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
     {
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                     IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-	//log.trace("received packet: {}", eth);
+        //log.trace("received packet: {}", eth);
         // check for the ARP request packet
         if ((Arrays.equals(eth.getDestinationMACAddress(),
                           STANDARD_DST_MAC_STRING)) &&
@@ -189,7 +189,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
             lock.incrVerifiedCnt();
             return Command.STOP;
         }
-	//log.trace("forwarding received packet: {}", eth);
+        //log.trace("forwarding received packet: {}", eth);
         return Command.CONTINUE;
     }
 
