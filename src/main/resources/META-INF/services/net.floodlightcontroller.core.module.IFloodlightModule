@@ -30,3 +30,4 @@ net.floodlightcontroller.loadbalancer.LoadBalancer
 net.floodlightcontroller.keyvaluestore.internal.VoldemortClientImpl
 net.floodlightcontroller.circuitswitching.internal.CircuitSwitchingImpl
 net.floodlightcontroller.topovalidation.internal.TopologyValidationSrvImpl
+net.floodlightcontroller.graphdbreader.internal.GraphDBReaderImpl
