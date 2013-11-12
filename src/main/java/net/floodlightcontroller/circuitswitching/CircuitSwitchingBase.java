@@ -188,8 +188,10 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
     {   
         synchronized (blockedSrcMACList) {
             for (DelegatedMAC mac: list) {
-                if (!blockedSrcMACList.contains(mac))
+                if (!blockedSrcMACList.contains(mac)) {
+					logger.trace("Adding blocked mac {}", mac);
                     blockedSrcMACList.add(mac);
+				}
             }
         }
     }
@@ -234,6 +236,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
         for (indx = 0; indx < array.length; indx++) {
             DelegatedMAC match = (DelegatedMAC) array[indx];
             if (match.equals(mac)) {
+				logger.debug("Found a match for the blocked mac, endbit {}", match.getEnd());
                 int endBit = match.getEnd();
                 long val = 1L << endBit + 1;
                 circuitID += val;
