@@ -55,9 +55,8 @@ public class CircuitIDGen
     {
 		long count = 0;
         synchronized (lock) {
-            circuitCount++;
-			count = circuitCount;
-			if (circuitCount >= (1L << (endBit-startBit + 1)))
+            count = circuitCount++;
+			if (count >= (1L << (endBit-startBit + 1)))
 				throw new Exception ("Ran out of available MAC addresses");
         } 
         return (count);
