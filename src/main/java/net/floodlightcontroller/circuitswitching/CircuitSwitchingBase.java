@@ -379,7 +379,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 match = matchList.get(index);
                 wildcard_hints = wHintsList.get(index); 
                 fm.setMatch(wildcard(match, sw, wildcard_hints));
-		index++;
+                index++;
                 // Set the flag to request flow-mod removal notifications only for the
                 // source switch. The removal message is used to maintain the flow
                 // cache. Don't set the flag for ARP messages - TODO generalize check
@@ -428,11 +428,11 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
                 if (logger.isTraceEnabled()) {
                     logger.trace("Pushing Circuit flowmod routeIndx={} " + 
-                            "sw={} inPort={} outPort={}",
+                            "sw={} inPort={} outPort={}, flowmod {}",
                             new Object[] {indx,
                                           sw,
                                           fm.getMatch().getInputPort(),
-                                          outPort });
+                                          outPort, fm.toString()});
                 }
                 messageDamper.write(sw, fm, cntx);
                 if (doFlush) {
