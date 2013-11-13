@@ -334,6 +334,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             /*
              *  Ignoring mac addrs for now 
              */
+            logger.trace("********** Executing the modifyActionList routine");
             refBuffer.position(12);
             recvdBuffer.position(12);
             short refEtherType = refBuffer.getShort(); 
@@ -661,6 +662,10 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 if (table != null) {
                     tunnelFound = true;
                     recvdPkt = table.getPacketHeader(recvdPkt);
+                    logger.trace("**** Found a rule talble");
+                    logger.trace("**** mapped packet {}", recvdPkt);
+                } else {
+                    logger.trace("**** Link table is null");
                 }
 
                 if (tunnelFound) {
@@ -668,6 +673,9 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                         len = modifyOFActionList(recvdPkt,  
                                                  pi.getPacketData(),
                                                  fm.getActions());
+                    } else {
+                        logger.trace(" **** Both the arrays are equal ***, pi is {}", pi);
+
                     }
                 }
                 match = matchList.get(index);
