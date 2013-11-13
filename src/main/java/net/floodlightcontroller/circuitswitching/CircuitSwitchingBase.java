@@ -591,7 +591,7 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             .setBufferId(OFPacketOut.BUFFER_ID_NONE)
             .setCookie(cookie)
             .setCommand(flowModCommand)
-            //.setMatch(match)
+            .setMatch(match)
             .setActions(actions)
             .setLengthU(OFFlowMod.MINIMUM_LENGTH+OFActionOutput.MINIMUM_LENGTH);
 
