@@ -546,8 +546,8 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
 						wildCards_List.addFirst(wildcard_hints);
 						srcSwOutport = pushCircuit(route, matchList, wildCards_List, sw.getId(),
 													pi, cookie, cntx, requestFlowRemovedNotifn,
-                                                    true, OFFlowMod.OFPFC_ADD, rwHeaders);
-						if (srcSwOutport != null) {
+                                                    true, OFFlowMod.OFPFC_ADD, rwHeaders, new boolean[1]);
+						if (srcSwOutport != null && srcSwOutport != Integer.valueOf(0x00FFFFFF)) {
 							pinSwitchRWHeaders = rwHeaders;
 							pinSwitchFound = true;
 						} else if (srcSwOutport == null){

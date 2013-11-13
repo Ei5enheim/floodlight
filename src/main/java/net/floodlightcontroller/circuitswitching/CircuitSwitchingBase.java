@@ -40,6 +40,7 @@ import net.floodlightcontroller.util.OFMessageDamper;
 import net.floodlightcontroller.util.TimedCache;
 import net.floodlightcontroller.util.DelegatedMAC;
 import net.floodlightcontroller.keyvaluestore.IKeyValueStoreService;
+import net.floodlightcontroller.util.IPv4Address;
 
 import org.openflow.protocol.OFType;
 import org.openflow.protocol.OFFlowMod;
@@ -48,6 +49,7 @@ import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
 import org.openflow.protocol.OFPacketOut;
 import org.openflow.protocol.action.OFAction;
+import org.openflow.protocol.action.*;
 import org.openflow.protocol.action.OFActionDataLayer;
 import org.openflow.protocol.action.OFActionOutput;
 import org.openflow.protocol.action.OFActionDataLayerDestination;
@@ -305,6 +307,220 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                    IRoutingDecision decision,
                                    FloodlightContext cntx);
 
+    /*
+     * A fuction to remap the packet received at the destination switch
+     * to the intial one
+     */
+    private int modifyOFActionList (byte[] recvdPkt,
+                                    byte[] refPkt,
+                                    List<OFAction> actions)
+    {
+        int refNetworkProtocol = 0;
+        int refTransportOffset = 34;
+        short refTransportSource = 0;
+        short refTransportDestination = 0;
+        int recvdNetworkProtocol = 0;
+        int recvdTransportOffset = 34;
+        short recvdTransportSource = 0;
+        short recvdTransportDestination = 0;
+        boolean refIsICMP = false;
+        boolean recvdIsICMP = false;
+        int len = 0;
+
+        ByteBuffer refBuffer = ByteBuffer.wrap(refPkt);
+        ByteBuffer recvdBuffer = ByteBuffer.wrap(recvdPkt);
+
+        if (refBuffer.limit() >= 14 && recvdBuffer.limit() >=14) {
+            /*
+             *  Ignoring mac addrs for now 
+             */
+            refBuffer.position(12);
+            recvdBuffer.position(12);
+            short refEtherType = refBuffer.getShort(); 
+            short recvdEtherType = recvdBuffer.getShort();
+            try {
+                if (refEtherType == (short) 0x8100) {
+                    short refVlan  = (short) (refBuffer.getShort() & 0xfff);
+                    byte priorityCode = (byte) ((refVlan >> 13) & 0x07);
+                    refVlan = (short) (refVlan & 0x0fff);
+                    if (recvdEtherType == (short) 0x8100) {
+                        short recvdVlan  = (short) (recvdBuffer.getShort() & 0xfff);
+                        byte recvdPriorityCode = (byte) ((recvdVlan >> 13) & 0x07);
+                        recvdVlan = (short) (recvdVlan & 0x0fff);   
+                        if (recvdVlan != refVlan) {
+                            OFActionVirtualLanIdentifier vlanAction = 
+                                                    new OFActionVirtualLanIdentifier(refVlan);
+                            actions.add(0, vlanAction);
+                            len += vlanAction.MINIMUM_LENGTH;
+                            logger.trace("*** adding vlan modify action ****");
+                        }                   
+                        if (recvdPriorityCode != priorityCode) {
+                            OFActionVirtualLanPriorityCodePoint pcpAction = 
+                                        new OFActionVirtualLanPriorityCodePoint(priorityCode);
+                            actions.add(0, pcpAction);
+                            len += pcpAction.MINIMUM_LENGTH;
+                            logger.trace("*** adding vlan PCP modify action ***");
+                        }
+                        recvdEtherType = recvdBuffer.getShort();        
+                    } else {
+                        logger.trace("** not a one to one mapping ***");
+                        // throw an exception
+                    }
+                    refEtherType = refBuffer.getShort();
+                }
+
+                if (refEtherType != recvdEtherType) {
+                    // no OF action as of now. so skipping it
+                    logger.trace("*** Ether types don't match ***");
+                }
+
+                if (refEtherType == (short) 0x0800) {
+                    // ipv4
+                    // check packet length
+                    int scratch = refBuffer.get();
+                    // getting the ip header len
+                    scratch = (short) (0xf & scratch);
+                    refTransportOffset = (refBuffer.position() - 1)
+                                        + (scratch * 4);
+
+                    scratch = recvdBuffer.get();
+                    // getting the ip header len
+                    scratch = (short) (0xf & scratch);
+                    recvdTransportOffset = (recvdBuffer.position() - 1)
+                                            + (scratch * 4);
+
+                    //skipping the total length part
+                    refBuffer.get();
+                    recvdBuffer.get();
+                    refBuffer.position(refBuffer.position() + 7);
+                    recvdBuffer.position(recvdBuffer.position() + 7);
+
+                    refNetworkProtocol = refBuffer.get();
+                    recvdNetworkProtocol = recvdBuffer.get();
+
+                    if (recvdNetworkProtocol != refNetworkProtocol) {
+                        // no OF action available as of now
+                        logger.trace("******* Network protocols mismatch ******");
+                    } 
+
+                    refBuffer.position(refBuffer.position() + 2);
+                    recvdBuffer.position(recvdBuffer.position() + 2);
+
+                    int refNetworkSource = refBuffer.getInt();
+                    int recvdNetworkSource = recvdBuffer.getInt();
+
+                    if (recvdNetworkSource != refNetworkSource) {
+                        OFActionNetworkLayerSource nwSrcAction = new 
+                                                        OFActionNetworkLayerSource (refNetworkSource);
+                        actions.add(0, nwSrcAction);
+                        len += nwSrcAction.MINIMUM_LENGTH;
+                        logger.trace("******* Adding a Network source modify action, recvd source"+
+                                     " {}, ref source {} ******", new IPv4Address(recvdNetworkSource),
+                                     new IPv4Address(refNetworkSource));
+                    }
+
+                    int refNetworkDestination = refBuffer.getInt();
+                    int recvdNetworkDestination = recvdBuffer.getInt();
+
+                    if (recvdNetworkDestination != refNetworkDestination) {
+                        OFActionNetworkLayerDestination nwDstAction = new
+                                        OFActionNetworkLayerDestination (refNetworkDestination);
+                        actions.add(0, nwDstAction);
+                        len += nwDstAction.MINIMUM_LENGTH;
+                        logger.trace("******* Adding a Network dstination modify action, recvd destination"  + 
+                                     " {}, ref destination {} ******", new IPv4Address(recvdNetworkDestination),
+                                     new IPv4Address(refNetworkDestination));
+                    }
+    
+                    refBuffer.position(refTransportOffset);
+                    recvdBuffer.position(recvdTransportOffset);
+                } else {
+                    logger.trace("******** ether type is not 0x800, so skipping everything and returning");
+                    return (len);
+                }
+
+                switch (refNetworkProtocol) {
+                    case 0x01:
+                        // icmp
+                        // type
+                        //transportSource = f(buffer.get());    
+                        //transportDestination = f(buffer.get());
+                        logger.trace("Ref packet Transport layer is ICMP ");
+                        refIsICMP = true;
+                        break;
+                    case 0x06:
+                        // tcp
+                        // tcp src
+                        refTransportSource = refBuffer.getShort();
+                        // tcp dest
+                        refTransportDestination = refBuffer.getShort();
+                        break;
+                    case 0x11:
+                        // udp
+                        // udp src
+                        refTransportSource = refBuffer.getShort();
+                        // udp dest
+                        refTransportDestination = refBuffer.getShort();
+                        break;
+                }
+                switch (recvdNetworkProtocol) {
+                    case 0x01:
+                        // icmp
+                        // type
+                        //transportSource = f(buffer.get());    
+                        //transportDestination = f(buffer.get());
+                        logger.trace("Recvd packet Transport layer is ICMP ");
+                        recvdIsICMP = true;
+                        if (!refIsICMP)
+                            logger.trace("***** Error ReF packet Transport layer is not ICMP ");
+                        return (len);
+                        
+                    case 0x06:
+                        // tcp
+                        // tcp src
+                        recvdTransportSource = recvdBuffer.getShort();
+                        // tcp dest
+                        recvdTransportDestination = recvdBuffer.getShort();
+                        break;
+                    case 0x11:
+                        // udp
+                        // udp src
+                        recvdTransportSource = recvdBuffer.getShort();
+                        // udp dest
+                        recvdTransportDestination = recvdBuffer.getShort();
+                        break;
+                }
+                if (recvdTransportSource != refTransportSource) {
+                    OFActionTransportLayerSource tpSrcAction = 
+                                        new OFActionTransportLayerSource (refTransportSource);
+                    actions.add(0, tpSrcAction);
+                    len += tpSrcAction.MINIMUM_LENGTH;
+                    logger.trace("***** remapping the transport layer source back to original value ");
+
+                }
+
+                if (recvdTransportDestination != refTransportDestination) {
+                    OFActionTransportLayerDestination tpDstAction =     
+                                        new OFActionTransportLayerDestination (refTransportDestination);
+                    actions.add(0, tpDstAction);
+                    len += tpDstAction.MINIMUM_LENGTH;
+                    logger.trace("***** remapping the transport layer destination back to original value ");
+                }
+            } catch (Exception e) {
+                logger.trace("***** Caught an exception while remapping the packet {} ", e);
+                return (0); 
+            }
+        } else {
+            return (0);
+        }
+        return (len);
+    }
+
+    private static short f (byte i)
+    {
+        return (short) ((short)i & 0xff);
+    }
+
     /**
      * Push routes from back to front
      * @param route Route to push
@@ -331,14 +547,21 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                 boolean reqeustFlowRemovedNotifn,
                                 boolean doFlush,
                                 short flowModCommand,
-                                LinkedList<byte[]> rwHeaders)
+                                LinkedList<byte[]> rwHeaders,
+                                boolean[] flag)
     {
+        byte[] recvdPkt = pi.getPacketData();
         OFMatch match = null;
-        int index = 0;
+        // assuming wild card and matchlist are of equal size
+        int index = wHintsList.size()-1;
         int outputActionIndex = 0;
         Integer wildcard_hints = 0;
         OFFlowMod fm_backup = null;
         Integer sourceSwOutport = null;
+        LinkedList<OFFlowMod> fmList = new LinkedList<OFFlowMod>();
+        Rules table = null;
+        Link link = null;
+        boolean tunnelFound = false;
     
         OFFlowMod fm =
                 (OFFlowMod) floodlightProvider.getOFMessageFactory()
@@ -374,8 +597,9 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
 
         List<NodePortTuple> switchPortList = route.getPath();
 
-        for (int indx = switchPortList.size()-1; indx > 0; indx -= 2) {
-            // indx and indx-1 will always have the same switch DPID.
+        // if indx is < 2, then this routine will not even be called, in first place.
+        for (int indx = 0; indx < switchPortList.size()-1; indx += 2) {
+            // indx and indx+1 will always have the same switch DPID.
             long switchDPID = switchPortList.get(indx).getNodeId();
             IOFSwitch sw = floodlightProvider.getSwitches().get(switchDPID);
             if (sw == null) {
@@ -383,32 +607,38 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                     logger.warn("Unable to push circuit, switch with DPID {} " +
                             "not available", switchDPID);
                 }
-                //return srcSwitchIncluded;
                 return (sourceSwOutport);
             }
             //need to reset it after each iteration
             outputActionIndex = 0;
-            // set the match.
-            fm.setMatch(wildcard(match, sw, wildcard_hints));
 
             // set buffer id if it is the source switch
-            if (1 == indx) {
+            if (0 == indx) {
                 match = matchList.get(index);
                 wildcard_hints = wHintsList.get(index); 
-                fm.setMatch(wildcard(match, sw, wildcard_hints));
-                index++;
+
+                //index--;
                 // Set the flag to request flow-mod removal notifications only for the
                 // source switch. The removal message is used to maintain the flow
                 // cache. Don't set the flag for ARP messages - TODO generalize check
+
                 if ((reqeustFlowRemovedNotifn)
                         && (match.getDataLayerType() != Ethernet.TYPE_ARP)) {
                     fm.setFlags(OFFlowMod.OFPFF_SEND_FLOW_REM);
                     match.setWildcards(fm.getMatch().getWildcards());
                 }
+
                 OFActionDataLayerDestination dstMACRW =
-                                    new OFActionDataLayerDestination(rwHeaders.get(index));
+                                    new OFActionDataLayerDestination(rwHeaders.get(index*2));
                 OFActionDataLayerSource srcMACRW =
-                                    new OFActionDataLayerSource(rwHeaders.get(index+1));
+                                    new OFActionDataLayerSource(rwHeaders.get(2*index+1));
+    
+                try {
+                    fm_backup = fm.clone();
+                } catch (CloneNotSupportedException e) {
+                    logger.error("Failure cloning flow mod {}", e);
+                }
+
                 // Need to move the output action to the bottom
                 fm.getActions().add(0, dstMACRW);
                 fm.getActions().add(0, srcMACRW);
@@ -416,31 +646,81 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 fm.setLengthU(OFFlowMod.MINIMUM_LENGTH +
                               OFActionOutput.MINIMUM_LENGTH +
                               2*OFActionDataLayer.MINIMUM_LENGTH);
-            } else if ((switchPortList.size()-1) == indx) {
-                OFActionDataLayerDestination dstMACRW =
-                                    new OFActionDataLayerDestination(rwHeaders.get(index));
-                OFActionDataLayerSource srcMACRW =
-                                    new OFActionDataLayerSource(rwHeaders.get(index+1));
-                try {         
-                    fm_backup = fm.clone();
-                } catch (CloneNotSupportedException e) {
-                    logger.error("Failure cloning flow mod {}", e);
+                fm.setMatch(wildcard(match, sw, wildcard_hints));
+                index--;
+                // we'll always end up at the last but one node
+            } else if ((switchPortList.size()-2) == indx) {
+                int len = 0;
+
+                link = new Link(switchPortList.get(indx-1).getNodeId(),
+                                switchPortList.get(indx-1).getPortId(),
+                                switchPortList.get(indx).getNodeId(),
+                                switchPortList.get(indx).getPortId());
+                table = floodlightProvider.getLinkRuleTransTable(link);
+
+                if (table != null) {
+                    tunnelFound = true;
+                    recvdPkt = table.getPacketHeader(recvdPkt);
                 }
+
+                if (tunnelFound) {
+                    if (!Arrays.equals(recvdPkt, pi.getPacketData())) {
+                        len = modifyOFActionList(recvdPkt,  
+                                                 pi.getPacketData(),
+                                                 fm.getActions());
+                    }
+                }
+                match = matchList.get(index);
+                wildcard_hints = wHintsList.get(index);
+                fm.setMatch(wildcard(match, sw, wildcard_hints));
+                // Need to come back here
+                OFActionDataLayerDestination dstMACRW =
+                                    new OFActionDataLayerDestination(rwHeaders.get(2*index));
+                OFActionDataLayerSource srcMACRW =
+                                    new OFActionDataLayerSource(rwHeaders.get(2*index+1));
+                
                 fm.getActions().add(0, dstMACRW);
                 fm.getActions().add(0, srcMACRW); 
-                outputActionIndex += 2;
+                outputActionIndex = fm.getActions().size()-1;
                 fm.setLengthU(OFFlowMod.MINIMUM_LENGTH +
                               OFActionOutput.MINIMUM_LENGTH + 
-                              2*OFActionDataLayer.MINIMUM_LENGTH);
-                index++;
+                              2*OFActionDataLayer.MINIMUM_LENGTH +
+                                len);
+                index--;
+            } else {
+                // This is the link between the present node and the downstream node
+                link = new Link(switchPortList.get(indx-1).getNodeId(),
+                                switchPortList.get(indx-1).getPortId(),
+                                switchPortList.get(indx).getNodeId(),
+                                switchPortList.get(indx).getPortId());
+                table = floodlightProvider.getLinkRuleTransTable(link);
+                
+                if (table != null) {
+                    tunnelFound = true;
+                    recvdPkt = table.getPacketHeader(recvdPkt);     
+                }       
+     
+                match = matchList.get(index);
+                wildcard_hints = wHintsList.get(index);
+                // set the match.
+                fm.setMatch(wildcard(match, sw, wildcard_hints));
+                //not decerementing index, but in future need to use flag to decrement
             }
 
-            short outPort = switchPortList.get(indx).getPortId();
-            short inPort = switchPortList.get(indx-1).getPortId();
+            short outPort = switchPortList.get(indx+1).getPortId();
+            short inPort = switchPortList.get(indx).getPortId();
             // set input and output ports on the switch
             fm.getMatch().setInputPort(inPort);
             ((OFActionOutput)fm.getActions().get(outputActionIndex)).setPort(outPort);
+            fmList.addFirst(fm);
 
+            if (sw.getId() == pinSwitch) {
+                sourceSwOutport = Integer.valueOf(outPort);
+            } else if (sourceSwOutport == null) {
+                sourceSwOutport = Integer.valueOf(0x00FFFFFF);
+            }
+
+            /*
             try {
                 counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
                 if (logger.isTraceEnabled()) {
@@ -464,9 +744,9 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
             } catch (IOException e) {
                 logger.error("Failure writing flow mod", e);
                 return (null);
-            }
+            }*/
     
-            if ((switchPortList.size()-1) == indx) {
+            if (0 == indx) {
                 fm = fm_backup;
             } else {
                 try {
@@ -477,12 +757,9 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                 }
             }
         }
+        if (!pushFlowMods (switchPortList, cntx, fmList, doFlush))
+            return (null);
         return (sourceSwOutport);
-    }
-
-    private OFPacketIn translatePktHeader (OFPacketIn pi)
-    {
-        return (pi);
     }
 
     /*public Integer pushRoute (Route route, OFPacketIn pi, 

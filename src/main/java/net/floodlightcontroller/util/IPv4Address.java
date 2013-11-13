@@ -111,14 +111,14 @@ public class IPv4Address
 
         StringBuilder str = new StringBuilder();
 
-	str.append(((ip & 0xFF000000) >> 24) & SIGN);
-	str.append(".");
-	str.append(((ip & 0x00FF0000) >> 16) & SIGN);
-	str.append(".");
-	str.append(((ip & 0x0000FF00) >> 8) & SIGN);
-	str.append(".");
-	str.append((ip & 0x000000FF) & SIGN);
-	/*
+		str.append(((ip & 0xFF000000) >> 24) & SIGN);
+		str.append(".");
+		str.append(((ip & 0x00FF0000) >> 16) & SIGN);
+		str.append(".");
+		str.append(((ip & 0x0000FF00) >> 8) & SIGN);
+		str.append(".");
+		str.append((ip & 0x000000FF) & SIGN);
+		/*
         for (int i = 3; i >= 0; i--)
         {
             str.append(((ip & MASK) >> (i*8)) & SIGN);

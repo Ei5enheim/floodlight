@@ -485,7 +485,7 @@ public class OFMatch implements Cloneable, Serializable {
         this.inputPort = inputPort;
 
         if (inputPort == OFPort.OFPP_ALL.getValue())
-                                                    this.wildcards |= OFPFW_IN_PORT;
+            this.wildcards |= OFPFW_IN_PORT;
 
         assert (limit >= 14);
         // dl dst
