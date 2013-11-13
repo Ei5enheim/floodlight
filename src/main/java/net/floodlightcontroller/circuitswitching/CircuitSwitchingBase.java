@@ -551,7 +551,8 @@ public abstract class CircuitSwitchingBase implements ICircuitSwitching,
                                 LinkedList<byte[]> rwHeaders,
                                 boolean[] flag)
     {
-        byte[] recvdPkt = pi.getPacketData();
+        byte[] recvdPkt = Arrays.copy(pi.getPacketData(),
+                                        pi.getPacketData().length);
         OFMatch match = null;
         // assuming wild card and matchlist are of equal size
         int index = wHintsList.size()-1;
