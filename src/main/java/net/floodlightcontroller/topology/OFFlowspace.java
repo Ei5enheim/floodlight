@@ -114,7 +114,7 @@ public class OFFlowspace implements Cloneable, IOFFlowspace
 			return Long.valueOf(baseAddress);
 
 		long mask = ~((0x1L << endBit+1) - 0x1L) | ((0x1L << startBit) - 0x1L);
-		mask = ~mask;
+		//mask = ~mask;
 
 		baseAddress = baseAddress & mask;
 		long rndmValue = ThreadLocalRandom.current().nextLong(0, (1 << (endBit-startBit+1)));
