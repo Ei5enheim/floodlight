@@ -139,7 +139,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             super();
             this.topoSlice = topoSlice;
             this.ses = ses;
-            floodlightProvider.addFlowspace(topoSlice.getDomainFlowspace());
+			floodlightProvider.addFlowspace(topoSlice.getDomainFlowspace());
             floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
             floodlightProvider.addDomainMapper(topoSlice.getDomainMapper());
             lock = topoValidator.validateTopology(new ArrayList<Link>(topoSlice.getLinks()),
@@ -210,7 +210,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         // No need of a deep copy as we are not going to modify any data
                         clone = new ArrayList(queue);
                     }
-					logger.trace("*********** Checking if switches are ready *******"); 
+					//logger.trace("*********** Checking if switches are ready *******"); 
                     //TODO need to replace it with a loop, 
                     for (indx = 0; indx < clone.size(); indx++) {
                         IGraphDBRequest req = clone.get(indx);
@@ -220,8 +220,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                             }
                             clone.remove(indx);
 						    logger.trace("********** Switches are ready, starting a worker" + 
-                                            " thread ********");	
+                                            " thread to validated a domain********");	
                             WorkerThread worker = new WorkerThread(req, ses);
+							//floodlightProvider.addFlowspace(req.getDomainFlowspace());
                             ses.execute(worker);
                         }
                     }
@@ -241,6 +242,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         	for (Link link: tables.keySet())
                             	tables.remove(link);
                     	}
+						logger.trace("******* switches are ready. Starting an interdomain worker thread" +
+										" to validate the interdomain Links *****");
                     	InterDomainWorkerThread worker = new InterDomainWorkerThread(newReq, ses);
                     	ses.execute(worker);
                 	}

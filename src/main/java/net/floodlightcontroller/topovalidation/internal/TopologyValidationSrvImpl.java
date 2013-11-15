@@ -204,23 +204,23 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         IPacket pkt = null;
 
         if (log.isDebugEnabled()) {
-            log.debug("Validating random flowspace on link {}--> {}",
-                      link.getSrc(), link.getDst());
+            log.debug("Validating random flowspace on link {}",
+                      link);
         }
 
         if (!isDiscoveryAllowed(link.getSrc(),
                                 link.getSrcPort())) {
             if (log.isDebugEnabled())
-                log.debug("source port of the link {}--> {} is blocked",
-                            link.getSrc(), link.getDst());
+                log.debug("source port of the link {} is blocked",
+                            link);
             return (false);
         }
 
         if (!isOutgoingDiscoveryAllowed(link.getDst(), 
                                         link.getDstPort())) {
             if (log.isDebugEnabled())
-                log.debug("destination port of the link {}--> {} is blocked",
-                            link.getSrc(), link.getDst());
+                log.debug("destination port of the link {} is blocked",
+                            link);
             return (false);
         }
 
@@ -254,7 +254,8 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
 		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), clonePkt);
 	
-		log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(), link.getDst());
+		log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(),
+						HexString.toHexString(link.getDst()));
 
         map.put(key, lock);
         // May be we need to push a flowmod at the destination switch and with specific mac

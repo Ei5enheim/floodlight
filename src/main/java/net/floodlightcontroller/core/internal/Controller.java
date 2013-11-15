@@ -1471,9 +1471,9 @@ public class Controller implements IFloodlightProviderService,
             this.flowspace.putAll(flowspace);
         }
 
-        if (flowspace != null) {
+        if ((flowspace != null) && !flowspace.isEmpty()) {
             for (IOFSwitch sw: activeSwitches.values()) {
-                sw.setPortsFlowspace(flowspace);
+                sw.setPortsFlowspace(this.flowspace);
             }
         }
         ports2BUpdated = false;
