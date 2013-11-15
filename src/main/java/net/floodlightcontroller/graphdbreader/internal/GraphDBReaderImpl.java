@@ -468,8 +468,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             // for now ignoring the "can be connected links"
         }
 
-        if (!vertices.contains(inNode) &&
-                inNode.getProperty("domain").equals(localDomain)) {
+        if (!vertices.contains(inNode)) {
+				//inNode.getProperty("domain").equals(localDomain)
             	vertices.add(inNode);
             if (!switches.contains(headDpid)) {
 				//TODO when we have multiple requests for a single domain or two domains
@@ -496,8 +496,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         (String)inNode.getProperty("Flowspace"));
             }
         }
-        if (!vertices.contains(outNode)&&
-                outNode.getProperty("domain").equals(localDomain)) {
+        if (!vertices.contains(outNode)) {
+			//outNode.getProperty("domain").equals(localDomain)
             vertices.add(outNode);
             if (!switches.contains(tailDpid)) {
                 switches.add(tailDpid);
