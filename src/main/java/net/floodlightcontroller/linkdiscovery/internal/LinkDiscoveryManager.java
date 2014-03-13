@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -140,6 +141,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     private static final String SWITCH_CONFIG_TABLE_NAME = "controller_switchconfig";
     private static final String SWITCH_CONFIG_CORE_SWITCH = "core_switch";
 
+    //No of Unidirectional Links in the topology
+    private static final int NLINKS = 60;
+
     protected IFloodlightProviderService floodlightProvider;
     protected IStorageSourceService storageSource;
     protected IThreadPoolService threadPool;
@@ -189,6 +193,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     protected ReentrantReadWriteLock lock;
     int lldpTimeCount = 0;
 
+    protected long startTime = 0;
+
+    protected long endTime = 0;
     /**
      * Flag to indicate if automatic port fast is enabled or not. Default is set
      * to false -- Initialized in the init method as well.
@@ -202,6 +209,13 @@ public class LinkDiscoveryManager implements IOFMessageListener,
      * Linkinfo has the state details like lldp, port state etc
      */
     protected Map<Link, LinkInfo> links;
+
+    /**
+     * Map to cross check the links discovered and increment the 
+     * counter once for every link
+     */
+
+    protected Map<Link, Boolean> discoveredLinks;
 
     /**
      * Map from switch id to a set of all links with it as an endpoint
@@ -386,6 +400,10 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         if (lldpClock == 0) {
             log.debug("Sending LLDP out on all ports.");
+
+            if (startTime == 0) {
+                startTime = System.currentTimeMillis();
+            }
             discoverOnAllPorts();
         }
     }
@@ -878,7 +896,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     }
 
     private Command handleLldp(LLDP lldp, long sw, OFPacketIn pi,
-                               boolean isStandard, FloodlightContext cntx) {
+                               boolean isStandard, FloodlightContext cntx)
+    {
         //System.out.println("Inside HandleLLDP routing");
         // If LLDP is suppressed on this port, ignore received packet as well
         IOFSwitch iofSwitch = floodlightProvider.getSwitches().get(sw);
@@ -963,6 +982,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             }
             return Command.STOP;
         }
+
         if (suppressLinkDiscovery.contains(new NodePortTuple(
                                                              remoteSwitch.getId(),
                                                              remotePort))) {
@@ -972,6 +992,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             }
             return Command.STOP;
         }
+
         if (!iofSwitch.portEnabled(pi.getInPort())) {
             if (log.isTraceEnabled()) {
                 log.trace("****Ignoring link with disabled dest port: switch {} port {}",
@@ -991,6 +1012,19 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         // routingEngine
         Link lt = new Link(remoteSwitch.getId(), remotePort,
                            iofSwitch.getId(), pi.getInPort());
+
+        if (!discoveredLinks.containsKey(lt)) {
+            /*
+            synchronized (this) {
+                count++;
+            }*/
+            discoveredLinks.put(lt, Boolean.valueOf(true));
+            endTime = System.currentTimeMillis();
+            if (discoveredLinks.size() == NLINKS) {
+                log.debug("****************** hurray ***************");
+                log.debug("**StartTime = " + startTime+" *** EndTime = "+endTime+" ***");
+            }
+        }
 
         Long lastLldpTime = null;
         Long lastBddpTime = null;
@@ -2186,6 +2220,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         this.quarantineQueue = new LinkedBlockingQueue<NodePortTuple>();
         this.maintenanceQueue = new LinkedBlockingQueue<NodePortTuple>();
 
+        this.discoveredLinks = new ConcurrentHashMap<Link, Boolean>();
+
         this.evHistTopologySwitch = new EventHistory<EventHistoryTopologySwitch>(EVENT_HISTORY_SIZE);
         this.evHistTopologyLink = new EventHistory<EventHistoryTopologyLink>(EVENT_HISTORY_SIZE);
         this.evHistTopologyCluster = new EventHistory<EventHistoryTopologyCluster>(EVENT_HISTORY_SIZE);
@@ -2214,8 +2250,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                     explanation = "An unknown error occured while sending LLDP "
                                                   + "messages to switches.",
                                     recommendation = LogMessageDoc.CHECK_SWITCH) })
-    public
-            void startUp(FloodlightModuleContext context) {
+
+    public void startUp(FloodlightModuleContext context) 
+    {
         // Create our storage tables
         if (storageSource == null) {
             log.error("No storage source found.");
