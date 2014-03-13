@@ -920,7 +920,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                 if (lldptlv.getValue()[0] == TLV_DIRECTION_VALUE_FORWARD[0])
                     isReverse = false;
                 else if (lldptlv.getValue()[0] == TLV_DIRECTION_VALUE_REVERSE[0])
-                                                                                 isReverse = true;
+                    isReverse = true;
             }
         }
 
@@ -962,6 +962,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             }
             return Command.STOP;
         }
+
         if (suppressLinkDiscovery.contains(new NodePortTuple(
                                                              remoteSwitch.getId(),
                                                              remotePort))) {
@@ -971,6 +972,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             }
             return Command.STOP;
         }
+
         if (!iofSwitch.portEnabled(pi.getInPort())) {
             if (log.isTraceEnabled()) {
                 log.trace("****Ignoring link with disabled dest port: switch {} port {}",
@@ -1260,6 +1262,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             LinkInfo oldInfo = links.put(lt, newInfo);
             if (oldInfo != null
                 && oldInfo.getFirstSeenTime() < newInfo.getFirstSeenTime())
+                newInfo.setFirstSeenTime(oldInfo.getFirstSeenTime());
 
             if (log.isTraceEnabled()) {
                 log.trace("addOrUpdateLink: {} {}",
@@ -2207,8 +2210,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                     explanation = "An unknown error occured while sending LLDP "
                                                   + "messages to switches.",
                                     recommendation = LogMessageDoc.CHECK_SWITCH) })
-    public
-            void startUp(FloodlightModuleContext context) {
+                                        
+    public void startUp(FloodlightModuleContext context) {
         // Create our storage tables
         if (storageSource == null) {
             log.error("No storage source found.");
