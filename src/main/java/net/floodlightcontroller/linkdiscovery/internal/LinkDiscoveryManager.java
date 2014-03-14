@@ -191,7 +191,6 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
     protected LLDPTLV controllerTLV;
     protected ReentrantReadWriteLock lock;
-    int lldpTimeCount = 0;
 
     protected long startTime = 0;
 
@@ -402,7 +401,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             log.debug("Sending LLDP out on all ports.");
 
             if (startTime == 0) {
-                startTime = System.currentTimeMillis();
+                startTime = System.nanoTime();
             }
             discoverOnAllPorts();
         }
@@ -1019,7 +1018,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                 count++;
             }*/
             discoveredLinks.put(lt, Boolean.valueOf(true));
-            endTime = System.currentTimeMillis();
+            endTime = System.nanoTime();
             if (discoveredLinks.size() == NLINKS) {
                 log.debug("****************** hurray ***************");
                 log.debug("**StartTime = " + startTime+" *** EndTime = "+endTime+" ***");
@@ -1656,6 +1655,11 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             return;
         }
         NodePortTuple npt = new NodePortTuple(sw, p);
+
+        if (startTime == 0) {
+            startTime = System.nanoTime();
+        }
+
         discover(sw, p);
         // if it is not a fast port, add it to quarantine.
         if (!iofSwitch.isFastPort(p)) {
@@ -2314,8 +2318,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         Role role = floodlightProvider.getRole();
         if (role == null || role == Role.MASTER) {
             log.trace("Setup: Rescheduling discovery task. role = {}", role);
-            //discoveryTask.reschedule(DISCOVERY_TASK_INTERVAL,
-                                     //TimeUnit.SECONDS);
+            discoveryTask.reschedule(DISCOVERY_TASK_INTERVAL,
+                                     TimeUnit.SECONDS);
         } else {
             log.trace("Setup: Not scheduling LLDP as role = {}.", role);
         }
