@@ -161,9 +161,12 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 					topoLinks = topoSlice.getLinks().toArray(topoLinks);
 					linkManager.addLinks(topoLinks);
                     if (cSwitchingMod != null) {
+                        // something is weird here. need to make it per switch
+                        // or set some default value for non delegated ones.
                         cSwitchingMod.setDelegatedSrcMAC(topoSlice.getDelegatedMAC());
                         cSwitchingMod.initCircuitIDGens();
                     }
+                    endTime = System.currentTimeMillis();
 					logger.trace("******** Added links to the topology ***********");
 				} else {
 					if (lock.getRetryCount() > 3) {
@@ -304,7 +307,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         ScheduledExecutorService ses = threadPool.getScheduledExecutor();
         updatesTask = new SingletonTask(ses, new UpdatesThread(ses));
         initInterDomainLinks();
-        updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
+        // uncomment this part if there are concurrent requests
+        //updatesTask.reschedule(0, TimeUnit.MILLISECONDS);
         interDomainLock = new Object();
         /*interDomainLinks = new GraphDBRequest();
         interDomainLinks.setRuleTransTables(new ConcurrentHashMap <Link, Rules>());
@@ -334,8 +338,12 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     {
         Object[] array = flowspace.toArray();
         IOFFlowspace[] portFlowspace = (IOFFlowspace[])array[0];
-       
-        return (portFlowspace[EGRESS].getDataLayerSrc().get(0)); 
+      
+        if (portFlowspace[EGRESS].getDataLayerSrc().size() == 0) {
+            return (null);
+        } else {
+            return (portFlowspace[EGRESS].getDataLayerSrc().get(0)); 
+        }
     }
 
     // internal utility methods
@@ -399,6 +407,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
                 					ruleTransTables, links, switches, srcMAC);
         queue.add(node);
+        graphReadEndTime = System.currentTimeMillis();
+        updatesTask.getTask().run();
     }
 
     private String processEdge (Edge e, HashSet <Vertex> vertices,
@@ -549,6 +559,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     public Boolean parse(byte[] file)
     {
 		try {
+            startTime = System.currentTimeMillis();
+            graphReadStartTime = startTime;
         	readGraph(file);
 		} catch (Exception e) {
 			logger.trace("****** caught an exception {} ******", e);
@@ -576,4 +588,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     private final int SWITCH_STATE_UPDATE_INTERVAL_MS = 400;
     private final int TOPOLOGY_UPDATE_INTERVAL_MS = 200;
 	private static int count = 0;
+    long graphReadStartTime = 0;
+    long graphReadEndTime = 0;
+    long startTime = 0;
+    long endTime = 0;
 }

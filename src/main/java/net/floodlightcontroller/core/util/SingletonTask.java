@@ -159,4 +159,9 @@ public class SingletonTask {
                 ses.schedule(stw, delay, unit);
         }
     }
+
+    public Runnable getTask()
+    {
+        return (task);
+    }
 }

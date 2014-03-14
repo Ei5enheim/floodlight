@@ -172,7 +172,6 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(sw.getId(),
                                                                         pktIn.getInPort()),
                                                                 		eth);
-
 		/*log.trace("Received a packet {}", eth);*/
 		//log.trace("*** recvd pktin inport{}, inswitch {} hash {}",
 			//new Object[]{pktIn.getInPort(), sw.getId(), key.hashCode()});
@@ -184,10 +183,11 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                 lock.incrVerifiedCnt();
                 if (lock.checkValidationStatus()) {
 		    		log.trace("Finished validating the topology ");
+                    lock.endTime = System.currentTimeMillis();
                     lock.taskComplete();
-					synchronized (lock) {
+					/*synchronized (lock) {
                     	lock.notifyAll();
-					}
+					}*/
                 }
             }
             return Command.STOP;
@@ -289,6 +289,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                      boolean completeFlowspace)
     {
         TopoLock lock = new TopoLock();
+        lock.startTime = System.currentTimeMillis();
 
         if (!completeFlowspace) {
 			lock.updateTotalCnt(links.size());	

@@ -13,6 +13,9 @@ public class TopoLock
     boolean inProgress;
     boolean isTopoValid;
 
+    public long startTime;
+    public long endTime;
+
     public TopoLock ()
     {
 	inProgress = true;

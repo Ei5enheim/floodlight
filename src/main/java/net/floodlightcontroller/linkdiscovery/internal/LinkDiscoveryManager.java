@@ -645,8 +645,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                    explanation = "An I/O error occured while sending LLDP message "
                                  + "to the switch.",
                    recommendation = LogMessageDoc.CHECK_SWITCH)
-    protected
-            void sendDiscoveryMessage(long sw, short port,
+
+    protected void sendDiscoveryMessage(long sw, short port,
                                       boolean isStandard, boolean isReverse) {
 
         // Takes care of all checks including null pointer checks.
