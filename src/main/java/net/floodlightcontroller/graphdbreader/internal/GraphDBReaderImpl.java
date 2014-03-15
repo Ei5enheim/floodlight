@@ -166,7 +166,10 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         cSwitchingMod.setDelegatedSrcMAC(topoSlice.getDelegatedMAC());
                         cSwitchingMod.initCircuitIDGens();
                     }
-                    endTime = System.currentTimeMillis();
+                    endTime = System.nanoTime();
+                    logger.debug("*** Finished validation and time stats are: startTime"+startTime+", endTime= "+endTime+","
+                                    +" graphReadStartTime= "+graphReadStartTime+", graphReadEndTime= "+graphReadStartTime+", "
+                                    +"topovalidationStartTime= "+lock.startTime+", topovalidationEndTime= "+lock.endTime+" ***");
 					logger.trace("******** Added links to the topology ***********");
 				} else {
 					if (lock.getRetryCount() > 3) {
@@ -407,7 +410,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
                 					ruleTransTables, links, switches, srcMAC);
         queue.add(node);
-        graphReadEndTime = System.currentTimeMillis();
+        graphReadEndTime = System.nanoTime();
         updatesTask.getTask().run();
     }
 
@@ -559,7 +562,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     public Boolean parse(byte[] file)
     {
 		try {
-            startTime = System.currentTimeMillis();
+            startTime = System.nanoTime();
             graphReadStartTime = startTime;
         	readGraph(file);
 		} catch (Exception e) {

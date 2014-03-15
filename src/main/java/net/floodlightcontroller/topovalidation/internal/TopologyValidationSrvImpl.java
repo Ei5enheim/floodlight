@@ -183,7 +183,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                 lock.incrVerifiedCnt();
                 if (lock.checkValidationStatus()) {
 		    		log.trace("Finished validating the topology ");
-                    lock.endTime = System.currentTimeMillis();
+                    lock.endTime = System.nanoTime();
                     lock.taskComplete();
 					/*synchronized (lock) {
                     	lock.notifyAll();
@@ -289,7 +289,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                      boolean completeFlowspace)
     {
         TopoLock lock = new TopoLock();
-        lock.startTime = System.currentTimeMillis();
+        lock.startTime = System.nanoTime();
 
         if (!completeFlowspace) {
 			lock.updateTotalCnt(links.size());	
