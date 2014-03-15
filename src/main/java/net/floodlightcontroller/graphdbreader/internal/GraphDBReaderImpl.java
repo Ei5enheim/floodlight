@@ -160,12 +160,13 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
 					topoLinks = topoSlice.getLinks().toArray(topoLinks);
 					linkManager.addLinks(topoLinks);
+                    /*
                     if (cSwitchingMod != null) {
                         // something is weird here. need to make it per switch
                         // or set some default value for non delegated ones.
                         cSwitchingMod.setDelegatedSrcMAC(topoSlice.getDelegatedMAC());
                         cSwitchingMod.initCircuitIDGens();
-                    }
+                    }*/
                     endTime = System.nanoTime();
                     logger.debug("*** Finished validation and time stats are: startTime"+startTime+", endTime= "+endTime+","
                                     +" graphReadStartTime= "+graphReadStartTime+", graphReadEndTime= "+graphReadStartTime+", "
@@ -405,7 +406,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             }
         }
 
-        srcMAC = getDelegatedSourceMAC(flowspace.values()); 
+        //srcMAC = getDelegatedSourceMAC(flowspace.values()); 
 
         IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
                 					ruleTransTables, links, switches, srcMAC);
