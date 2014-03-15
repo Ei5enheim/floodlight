@@ -335,7 +335,11 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         Object[] array = flowspace.toArray();
         IOFFlowspace[] portFlowspace = (IOFFlowspace[])array[0];
        
-        return (portFlowspace[EGRESS].getDataLayerSrc().get(0)); 
+       	if (portFlowspace[EGRESS].getDataLayerSrc() != null) {
+        	return (portFlowspace[EGRESS].getDataLayerSrc().get(0)); 
+       	} else {
+       		return null;	
+       	}
     }
 
     // internal utility methods
