@@ -412,7 +412,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                 					ruleTransTables, links, switches, srcMAC);
         queue.add(node);
         graphReadEndTime = System.nanoTime();
-        if (updatesTask.getTask() != null) {
+        if (updatesTask != null && updatesTask.getTask() != null) {
             updatesTask.getTask().run();
         } else {
             logger.debug("**** getTask returns null ****");
