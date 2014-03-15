@@ -388,7 +388,6 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
     protected void discoverLinks()
     {
-
         // Ignore for now
        
         // timeout known links.
@@ -401,7 +400,11 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             log.debug("Sending LLDP out on all ports.");
 
             if (startTime == 0) {
+                Set<Long> switches = floodlightProvider.getSwitches().keySet();
+                log.debug("**** started the tickbomb, switchCount= "+ switches.size()+" ****");
                 startTime = System.nanoTime();
+            } else {
+                log.debug("**** DiscoverLinks called at: "+System.nanoTime()+" ****");
             }
             discoverOnAllPorts();
         }
@@ -1658,7 +1661,11 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         NodePortTuple npt = new NodePortTuple(sw, p);
 
         if (startTime == 0) {
+            Set<Long> switches = floodlightProvider.getSwitches().keySet();
+            log.debug("**** started the tickbomb processNewPort, switchCount= "+ switches.size()+" ****");
             startTime = System.nanoTime();
+        } else {
+            log.debug("**** ProcessNewPort called at: "+System.nanoTime()+" ****");
         }
 
         discover(sw, p);
