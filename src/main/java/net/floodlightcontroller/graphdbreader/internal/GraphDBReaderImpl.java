@@ -586,7 +586,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     protected static List<IGraphDBRequest> queue;
     protected static IGraphDBRequest interDomainLinks;
     protected static Object interDomainLock;
-    protected SingletonTask updatesTask;
+    protected static SingletonTask updatesTask;
     protected static Logger logger;
     private static final int port = 6999;
     private WebServer webServer;
