@@ -1045,6 +1045,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         // first seen within a small interval, send probe on the
         // reverse link.
 
+        /*
         newLinkInfo = links.get(lt);
         if (newLinkInfo != null && isStandard && isReverse == false) {
             Link reverseLink = new Link(lt.getDst(), lt.getDstPort(),
@@ -1058,7 +1059,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                               isStandard, true);
                 }
             }
-        }
+        }*/
 
         // If the received packet is a BDDP packet, then create a reverse BDDP
         // link as well.
