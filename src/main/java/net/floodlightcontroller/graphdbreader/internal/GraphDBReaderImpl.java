@@ -596,8 +596,8 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
     private final int SWITCH_STATE_UPDATE_INTERVAL_MS = 400;
     private final int TOPOLOGY_UPDATE_INTERVAL_MS = 200;
 	private static int count = 0;
-    long graphReadStartTime = 0;
-    long graphReadEndTime = 0;
-    long startTime = 0;
-    long endTime = 0;
+    static long graphReadStartTime = 0;
+    static long graphReadEndTime = 0;
+    static long startTime = 0;
+    static long endTime = 0;
 }
