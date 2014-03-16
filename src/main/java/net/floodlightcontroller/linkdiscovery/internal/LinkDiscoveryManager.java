@@ -915,7 +915,6 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         if (lldp.getPortId() == null || lldp.getPortId().getLength() != 3) {
             return Command.CONTINUE;
         }
-        System.out.println("past the port ID check");
         long myId = ByteBuffer.wrap(controllerTLV.getValue()).getLong();
         long otherId = 0;
         boolean myLLDP = false;
@@ -1020,15 +1019,13 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                            iofSwitch.getId(), pi.getInPort());
 
         if (!discoveredLinks.containsKey(lt)) {
-            /*
-            synchronized (this) {
-                count++;
-            }*/
             discoveredLinks.put(lt, Boolean.valueOf(true));
-            endTime = System.nanoTime();
+            //endTime = System.nanoTime();
+            //log.debug("********* No. Of Links discovered so far "+discoveredLinks.size()+" ******"); 
             if (discoveredLinks.size() == NLINKS) {
+                endTime = System.nanoTime();
                 log.debug("****************** hurray ***************");
-                log.debug("**StartTime = " + startTime+" *** EndTime = "+endTime+" ***");
+                log.debug("**  StartTime = " + startTime+" , EndTime = "+endTime+" , difference= "+ endTime-startTime+" ****");
             }
         }
 
