@@ -250,16 +250,86 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
 		IPacket clonePkt = new Ethernet().deserialize(clonePktData, 0, clonePktData.length);
 	
-		log.trace("cloned packet {}", clonePkt);
+		//log.trace("cloned packet {}", clonePkt);
 
 		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), clonePkt);
 	
-		log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(),
-						HexString.toHexString(link.getDst()));
+		//log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(),
+		//				HexString.toHexString(link.getDst()));
 
         map.put(key, lock);
         // May be we need to push a flowmod at the destination switch and with specific mac
-        // or anyway we have to store the mapper packet for matching when we receive
+        // or anyway we have to store the packet for matching when we receive
+        sendPacket (srcSw, link.getSrcPort(), po);
+        return (true);
+    }
+
+
+    private boolean validateLink (Link link,
+                                    IOFFlowspace flowspace,
+                                    Rules ruleTransTable,
+                                    TopoLock lock)
+    {
+        OFPacketOut po = null;
+        IPacket pkt = null;
+
+        if (log.isDebugEnabled()) {
+            log.debug("Validating random flowspace on link {}",
+                      link);
+        }
+
+        if (!isDiscoveryAllowed(link.getSrc(),
+                                link.getSrcPort())) {
+            if (log.isDebugEnabled())
+                log.debug("source port of the link {} is blocked",
+                            link);
+            return (false);
+        }
+
+        if (!isOutgoingDiscoveryAllowed(link.getDst(), 
+                                        link.getDstPort())) {
+            if (log.isDebugEnabled())
+                log.debug("destination port of the link {} is blocked",
+                            link);
+            return (false);
+        }
+
+        IOFSwitch srcSw = floodlightProvider.getSwitches().get(link.getSrc());
+        IOFSwitch dstSw = floodlightProvider.getSwitches().get(link.getDst());
+        //IOFFlowspace flowspace = srcSw.getPort(link.getSrcPort()).getEgressFlowspace();
+
+        if (flowspace != null)
+            pkt = getPacket(srcSw, flowspace, true);
+        else
+            pkt = getDefaultPacket(srcSw);
+
+        if (pkt == null)
+            return false;
+
+		log.trace("Generated packet {}", pkt);
+
+        po = (OFPacketOut) floodlightProvider.getOFMessageFactory()
+                                            .getMessage(OFType.PACKET_OUT);
+		byte[] packetData = pkt.serialize();
+        po.setPacketData(packetData);
+
+		byte[] clonePktData = Arrays.copyOf(packetData, packetData.length);
+
+        if (!pushFlowMod(clonePktData, dstSw, ruleTransTable, link.getDstPort()))
+            return (false);
+
+		IPacket clonePkt = new Ethernet().deserialize(clonePktData, 0, clonePktData.length);
+	
+		//log.trace("cloned packet {}", clonePkt);
+
+		NodePortTuplePlusPkt key = new NodePortTuplePlusPkt(new NodePortTuple(link.getDst(), link.getDstPort()), clonePkt);
+	
+		//log.trace("Pushing packet to Destination port: {} switch: {}", link.getDstPort(),
+		//				HexString.toHexString(link.getDst()));
+
+        map.put(key, lock);
+        // May be we need to push a flowmod at the destination switch and with specific mac
+        // or anyway we have to store the packet for matching when we receive
         sendPacket (srcSw, link.getSrcPort(), po);
         return (true);
     }
@@ -273,13 +343,32 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
 
     private boolean validateTopology (List<Link> links,
                                      Map<Link, Rules> ruleTransTables,
-                                        TopoLock lock)
+                                     TopoLock lock)
     {
         for (Link link: links) {
             if(!validateLink(link, ruleTransTables.get(link), lock))
                 return (false);
         }
         
+        return (true);
+    }
+
+
+    private boolean validateTopology (List<Link> links,
+                                     Map <NodePortTuple, IOFFlowspace[]> flowspace, 
+                                     Map<Link, Rules> ruleTransTables,
+                                     TopoLock lock)
+    {
+        IOFFlowspace portFlowspace = null;
+        NodePortTuple port = new NodePortTuple(0, 0);
+        
+        for (Link link: links) {
+            port.setNodeId(link.getSrc());
+            port.setPortId(link.getSrcPort());
+            portFlowspace = flowspace.get(port)[1];
+            if(!validateLink(link, portFlowspace, ruleTransTables.get(link), lock))
+                return (false);
+        }
         return (true);
     }
 
@@ -294,6 +383,27 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         if (!completeFlowspace) {
 			lock.updateTotalCnt(links.size());	
             if (!validateTopology (links, ruleTransTables, lock)) {
+                // Aborting the validation part and reseting the lock
+                synchronized (map) {
+                    map.values().remove(lock);
+                }
+                return (null);
+            }
+        }
+        return (lock);
+    }
+
+    public TopoLock validateTopology (List<Link> links,
+                                     Map <NodePortTuple, IOFFlowspace[]> flowspace,   
+                                     Map<Link, Rules> ruleTransTables,
+                                     boolean completeFlowspace)
+    {
+        TopoLock lock = new TopoLock();
+        lock.startTime = System.nanoTime();
+
+        if (!completeFlowspace) {
+			lock.updateTotalCnt(links.size());	
+            if (!validateTopology (links, flowspace, ruleTransTables, lock)) {
                 // Aborting the validation part and reseting the lock
                 synchronized (map) {
                     map.values().remove(lock);
@@ -591,10 +701,11 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
                                short outport,
                                OFPacketOut po)
     {
-        if (log.isTraceEnabled()) {
+        /*
+         * if (log.isTraceEnabled()) {
             log.trace("PacketOut srcSwitch={} po={} ",
                             new Object[] {sw, po});
-        }
+        }*/
         // set actions
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(new OFActionOutput(outport, (short) 0xffff));
@@ -610,7 +721,7 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         po.setLength(poLength);
 
         try {
-            counterStore.updatePktOutFMCounterStoreLocal(sw, po);
+            //counterStore.updatePktOutFMCounterStoreLocal(sw, po);
             messageDamper.write(sw, po, null, true);
         } catch (IOException e) {
             log.error("Failure writing packet out", e);
@@ -668,18 +779,17 @@ public class TopologyValidationSrvImpl implements ITopoValidationService,
         fm.getMatch().setWildcards(wildcard_hints);
         try {
             counterStore.updatePktOutFMCounterStoreLocal(sw, fm);
-            if (log.isTraceEnabled()) {
+            /*if (log.isTraceEnabled()) {
                 log.trace("Pushing flowmod " +
                         "sw={} inPort={} outPort={}",
                         new Object[] {sw,
                         fm.getMatch().getInputPort(),
                         OFPort.OFPP_CONTROLLER});
-            }
+            }*/
 			
-			log.trace("Generated Flowmod: {}", fm);
             messageDamper.write(sw, fm, null);
             sw.flush();
-            counterStore.updateFlush();
+            //counterStore.updateFlush();
         } catch (IOException e) {
             log.error("Failure writing flow mod", e);
             return (false);

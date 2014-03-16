@@ -38,4 +38,9 @@ public interface ITopoValidationService extends IFloodlightService
     public TopoLock validateTopology (List<Link> links,
 				     Map<Link, Rules> ruleTransTables,
                                      boolean completeFlowspace); 
+
+    public TopoLock validateTopology (List<Link> links,
+                     Map<NodePortTuple, IOFFlowspace[]> flowspace,
+				     Map<Link, Rules> ruleTransTables,
+                                     boolean completeFlowspace); 
 }

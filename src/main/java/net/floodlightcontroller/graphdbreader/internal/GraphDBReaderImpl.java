@@ -139,10 +139,11 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             super();
             this.topoSlice = topoSlice;
             this.ses = ses;
-			floodlightProvider.addFlowspace(topoSlice.getDomainFlowspace());
-            floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
-            floodlightProvider.addDomainMapper(topoSlice.getDomainMapper());
+			//floodlightProvider.addFlowspace(topoSlice.getDomainFlowspace());
+            //floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
+            //floodlightProvider.addDomainMapper(topoSlice.getDomainMapper());
             lock = topoValidator.validateTopology(new ArrayList<Link>(topoSlice.getLinks()),
+                                                topoSlice.getDomainFlowspace(),
                                                 topoSlice.getRuleTransTables(), false);
         }
 
@@ -156,10 +157,10 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             	}
        
             	if (lock.checkValidationStatus()) {
-					logger.trace("********* starting topology update ***********");
-					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
-					topoLinks = topoSlice.getLinks().toArray(topoLinks);
-					linkManager.addLinks(topoLinks);
+					//logger.trace("********* starting topology update ***********");
+					//Link[] topoLinks = new Link[topoSlice.getLinks().size()];
+					//topoLinks = topoSlice.getLinks().toArray(topoLinks);
+					//linkManager.addLinks(topoLinks);
                     /*
                     if (cSwitchingMod != null) {
                         // something is weird here. need to make it per switch
@@ -172,6 +173,9 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                                     +" graphReadStartTime= "+graphReadStartTime+", graphReadEndTime= "+graphReadStartTime+", "
                                     +"topovalidationStartTime= "+lock.startTime+", topovalidationEndTime= "+lock.endTime+" ***");
 					logger.trace("******** Added links to the topology ***********");
+					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
+					topoLinks = topoSlice.getLinks().toArray(topoLinks);
+					linkManager.addLinks(topoLinks);
 				} else {
 					if (lock.getRetryCount() > 3) {
 						throw new GraphDBException (" ******* Exception, Unable to validate topology ******* \n"+
@@ -374,7 +378,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         flowspace = new ConcurrentHashMap <NodePortTuple, IOFFlowspace[]>();
         ruleTransTables = new ConcurrentHashMap <Link, Rules>();
         links = new HashSet<Link>();
-        domainMapper = new HashMap<Long, String>();
+        //domainMapper = new HashMap<Long, String>();
 
         Graph graph = new DexGraph(fileName);
         try {
@@ -385,7 +389,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         for (Edge e: graph.getEdges()) {
             try {
                 localDomain = processEdge(e, vertices, switches, pruneList, 
-                                            links, flowspace, domainMapper,
+                                            links, flowspace, null, //domainMapper,
                                             ruleTransTables, localDomain);
             } catch (FlowspaceException fe) {
                 logger.trace("*********caught an exception {}*********", fe); 
@@ -398,7 +402,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             for (Edge e: array) {
                 try {
                     processEdge(e, vertices, switches, pruneList,
-                            links, flowspace, domainMapper,
+                            links, flowspace, null,//domainMapper,
                             ruleTransTables, localDomain);
                 } catch (FlowspaceException fs) {
                     logger.trace("*********caught an exception {}*********", fs);
@@ -407,16 +411,12 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
         }
 
         //srcMAC = getDelegatedSourceMAC(flowspace.values()); 
+        graphReadEndTime = System.nanoTime();
 
-        IGraphDBRequest node = new GraphDBRequest(domainMapper, flowspace,
+        IGraphDBRequest node = new GraphDBRequest(null, /*domainMapper,*/ flowspace,
                 					ruleTransTables, links, switches, srcMAC);
         queue.add(node);
-        graphReadEndTime = System.nanoTime();
-        if (updatesTask != null && updatesTask.getTask() != null) {
-            updatesTask.getTask().run();
-        } else {
-            logger.debug("**** getTask returns null ****");
-        }
+        updatesTask.getTask().run();
     }
 
     private String processEdge (Edge e, HashSet <Vertex> vertices,
@@ -495,7 +495,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 				// in the queue and verificaiton never happens
                 switches.add(headDpid);
                 //System.out.println("Vertex is " + inNode.getProperty("DPID") + ", " + inNode.getId());
-                domainMapper.put(headDpid, (String)inNode.getProperty("domain"));
+                //domainMapper.put(headDpid, (String)inNode.getProperty("domain"));
             }
             if (flowspace.get(headSwitchPort) == null)
                 flowspace.put(headSwitchPort, new IOFFlowspace[2]);
@@ -519,7 +519,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
             vertices.add(outNode);
             if (!switches.contains(tailDpid)) {
                 switches.add(tailDpid);
-                domainMapper.put(tailDpid, (String) outNode.getProperty("domain"));
+                //domainMapper.put(tailDpid, (String) outNode.getProperty("domain"));
                 //System.out.println("Vertex is " + outNode.getProperty("DPID") + ", " + outNode.getId());
             }
             if (flowspace.get(tailSwitchPort) == null)
