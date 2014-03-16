@@ -1024,8 +1024,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             //log.debug("********* No. Of Links discovered so far "+discoveredLinks.size()+" ******"); 
             if (discoveredLinks.size() == NLINKS) {
                 endTime = System.nanoTime();
+                long diff = endTime-startTime;
                 log.debug("****************** hurray ***************");
-                log.debug("**  StartTime = " + startTime+" , EndTime = "+endTime+" , difference= "+ endTime-startTime+" ****");
+                log.debug("**  StartTime = " + startTime+" , EndTime = "+endTime+" , difference= "+ diff +" ****");
             }
         }
 
