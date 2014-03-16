@@ -168,10 +168,16 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         cSwitchingMod.setDelegatedSrcMAC(topoSlice.getDelegatedMAC());
                         cSwitchingMod.initCircuitIDGens();
                     }*/
+                    long totalDiff = endTime - startTime;
+                    long graphTime = graphReadEndTime - graphReadStartTime;
+                    long validationTime = lock.endTime - lock.startTime;
                     endTime = System.nanoTime();
-                    logger.debug("*** Finished validation and time stats are: startTime"+startTime+", endTime= "+endTime+","
-                                    +" graphReadStartTime= "+graphReadStartTime+", graphReadEndTime= "+graphReadStartTime+", "
-                                    +"topovalidationStartTime= "+lock.startTime+", topovalidationEndTime= "+lock.endTime+" ***");
+                    logger.debug("*** Finished validation and time stats are: "+
+                                    "startTime = "+startTime+", endTime= "+endTime+","
+                                    +" totalTime= "+ totalDiff +" graphReadStartTime= "
+                                    +graphReadStartTime+", graphReadEndTime= "+ graphReadEndTime
+                                    +", graphTime= "+ graphTime+" , topovalidationStartTime= "+lock.startTime
+                                    +", topovalidationEndTime= "+lock.endTime+ ", validationTime= "+ validationTime+" ***");
 					logger.trace("******** Added links to the topology ***********");
 					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
 					topoLinks = topoSlice.getLinks().toArray(topoLinks);
