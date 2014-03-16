@@ -144,6 +144,8 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     //No of Unidirectional Links in the topology
     private static final int NLINKS = 60;
 
+    private static final int NSWITCHES = 20;
+
     protected IFloodlightProviderService floodlightProvider;
     protected IStorageSourceService storageSource;
     protected IThreadPoolService threadPool;
@@ -399,14 +401,16 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         if (lldpClock == 0) {
             log.debug("Sending LLDP out on all ports.");
 
-            if (startTime == 0) {
-                Set<Long> switches = floodlightProvider.getSwitches().keySet();
-                log.debug("**** started the tickbomb, switchCount= "+ switches.size()+" ****");
-                startTime = System.nanoTime();
-            } else {
-                log.debug("**** DiscoverLinks called at: "+System.nanoTime()+" ****");
+            if (NSWITCHES == 20) {
+                if (startTime == 0) {
+                    Set<Long> switches = floodlightProvider.getSwitches().keySet();
+                    log.debug("**** started the tickbomb, switchCount= "+ switches.size()+" ****");
+                    startTime = System.nanoTime();
+                } else {
+                    log.debug("**** DiscoverLinks called at: "+System.nanoTime()+" ****");
+                }
+                discoverOnAllPorts();
             }
-            discoverOnAllPorts();
         }
     }
 
@@ -1660,15 +1664,16 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         }
         NodePortTuple npt = new NodePortTuple(sw, p);
 
-        if (startTime == 0) {
-            Set<Long> switches = floodlightProvider.getSwitches().keySet();
-            log.debug("**** started the tickbomb processNewPort, switchCount= "+ switches.size()+" ****");
-            startTime = System.nanoTime();
-        } else {
-            log.debug("**** ProcessNewPort called at: "+System.nanoTime()+" ****");
+        if (NSWITCHES == 20) {
+            if (startTime == 0) {
+                Set<Long> switches = floodlightProvider.getSwitches().keySet();
+                log.debug("**** started the tickbomb processNewPort, switchCount= "+ switches.size()+" ****");
+                startTime = System.nanoTime();
+            } else {
+                log.debug("**** ProcessNewPort called at: "+System.nanoTime()+" ****");
+            }
+            discover(sw, p);
         }
-
-        discover(sw, p);
         // if it is not a fast port, add it to quarantine.
         if (!iofSwitch.isFastPort(p)) {
             addToQuarantineQueue(npt);
