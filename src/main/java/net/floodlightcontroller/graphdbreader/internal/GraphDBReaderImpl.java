@@ -175,7 +175,10 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
 					logger.trace("******** Added links to the topology ***********");
 					Link[] topoLinks = new Link[topoSlice.getLinks().size()];
 					topoLinks = topoSlice.getLinks().toArray(topoLinks);
-					linkManager.addLinks(topoLinks);
+			        floodlightProvider.addFlowspace(topoSlice.getDomainFlowspace());
+                    floodlightProvider.addRuleTransTables(topoSlice.getRuleTransTables());
+                    floodlightProvider.addDomainMapper(topoSlice.getDomainMapper());
+                    linkManager.addLinks(topoLinks);
 				} else {
 					if (lock.getRetryCount() > 3) {
 						throw new GraphDBException (" ******* Exception, Unable to validate topology ******* \n"+
