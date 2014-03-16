@@ -673,7 +673,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         log.trace("Trying to send LLDP packet out of swich: {}, port: {}, isBDDP: {}", 
                     new Object[] {HexString.toHexString(sw), Short.valueOf(port),
-                                    Boolean.valueOf(isStandard)});
+                                    Boolean.valueOf(!isStandard)});
         // Takes care of all checks including null pointer checks.
         // checks whether the swport is suppressed or not
         // checks if the port is up and non auto fast
@@ -1646,6 +1646,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
      * @param p
      */
     private void processNewPort(long sw, short p) {
+        /*
         if (isLinkDiscoverySuppressed(sw, p)) { 
             log.trace("Discovery disabled on switch {} port #{} ",
                        new Object[] {HexString.toHexString(sw),
@@ -1681,7 +1682,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             // Add to maintenance queue to ensure that BDDP packets
             // are sent out.
             addToMaintenanceQueue(npt);
-        }
+        }*/
     }
 
     /**
