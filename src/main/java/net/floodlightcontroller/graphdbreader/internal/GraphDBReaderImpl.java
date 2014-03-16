@@ -168,7 +168,7 @@ public class GraphDBReaderImpl implements IGraphDBReaderService,
                         cSwitchingMod.setDelegatedSrcMAC(topoSlice.getDelegatedMAC());
                         cSwitchingMod.initCircuitIDGens();
                     }*/
-                    long totalDiff = endTime - startTime;
+                    long totalDiff = lock.endTime - startTime;
                     long graphTime = graphReadEndTime - graphReadStartTime;
                     long validationTime = lock.endTime - lock.startTime;
                     endTime = System.nanoTime();
