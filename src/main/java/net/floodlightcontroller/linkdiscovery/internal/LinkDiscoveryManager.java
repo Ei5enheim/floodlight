@@ -683,9 +683,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         IOFSwitch iofSwitch = floodlightProvider.getSwitches().get(sw);
         OFPhysicalPort ofpPort = iofSwitch.getPort(port);
 
-        if (log.isTraceEnabled()) {
+        /*if (log.isTraceEnabled()) {
             log.trace("Sending LLDP packet out of swich: {}, port: {}", HexString.toHexString(sw), port);
-        }
+        }*/
 
         // using "nearest customer bridge" MAC address for broadest possible
         // propagation
@@ -807,9 +807,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
      * Send LLDPs to all switch-ports
      */
     protected void discoverOnAllPorts() {
-        if (log.isTraceEnabled()) {
-            log.trace("Sending LLDP packets out of all the enabled ports on switch {}");
-        }
+        //if (log.isTraceEnabled()) {
+        //    log.trace("Sending LLDP packets out of all the enabled ports on switch {}");
+        //}
         Set<Long> switches = floodlightProvider.getSwitches().keySet();
         // Send standard LLDPs
         for (long sw : switches) {
@@ -1100,7 +1100,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                                               IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-        log.trace("Ethertype of the received packet is {}", Integer.toHexString(eth.getEtherType()));
+        //log.trace("Ethertype of the received packet is {}", Integer.toHexString(eth.getEtherType()));
         if (eth.getEtherType() == Ethernet.TYPE_BSN) {
             BSN bsn = (BSN) eth.getPayload();
             if (bsn == null) return Command.STOP;
@@ -1112,7 +1112,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 	    log.trace("found a BDDP");
             return handleLldp((LLDP) bsn.getPayload(), sw, pi, false, cntx);
         } else if (eth.getEtherType() == Ethernet.TYPE_LLDP) {
-            log.trace("Handling LLDP packet{}", eth);
+            //log.trace("Handling LLDP packet{}", eth);
             //System.out.println("handling lldp packet");
             return handleLldp((LLDP) eth.getPayload(), sw, pi, true, cntx);
         } else if (eth.getEtherType() < 1500) {
