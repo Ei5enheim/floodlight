@@ -671,9 +671,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
             void sendDiscoveryMessage(long sw, short port,
                                       boolean isStandard, boolean isReverse) {
 
-        log.trace("Trying to send LLDP packet out of swich: {}, port: {}, isBDDP: {}", 
-                    new Object[] {HexString.toHexString(sw), Short.valueOf(port),
-                                    Boolean.valueOf(!isStandard)});
+        //log.trace("Trying to send LLDP packet out of swich: {}, port: {}, isBDDP: {}", 
+        //            new Object[] {HexString.toHexString(sw), Short.valueOf(port),
+        //                            Boolean.valueOf(!isStandard)});
         // Takes care of all checks including null pointer checks.
         // checks whether the swport is suppressed or not
         // checks if the port is up and non auto fast
@@ -730,9 +730,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
 
         // set the portId to the outgoing port
         portBB.putShort(port);
-        if (log.isTraceEnabled()) {
-            log.trace("Sending LLDP out of interface: {}/{}", HexString.toHexString(sw), port);
-        }
+        //if (log.isTraceEnabled()) {
+        //    log.trace("Sending LLDP out of interface: {}/{}", HexString.toHexString(sw), port);
+        //}
 
         LLDP lldp = new LLDP();
         lldp.setChassisId(new LLDPTLV().setType((byte) 1)
@@ -1033,8 +1033,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
         Long lastLldpTime = null;
         Long lastBddpTime = null;
 
-        Long firstSeenTime = System.currentTimeMillis();
+        Long firstSeenTime = 0L; //System.currentTimeMillis();
 
+        /*
         if (isStandard)
             lastLldpTime = System.currentTimeMillis();
         else
@@ -1044,7 +1045,7 @@ public class LinkDiscoveryManager implements IOFMessageListener,
                                             lastBddpTime, srcPortState,
                                             dstPortState);
         addOrUpdateLink(lt, newLinkInfo);
-
+        */
         // Check if reverse link exists.
         // If it doesn't exist and if the forward link was seen
         // first seen within a small interval, send probe on the
