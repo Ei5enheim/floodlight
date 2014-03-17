@@ -142,9 +142,9 @@ public class LinkDiscoveryManager implements IOFMessageListener,
     private static final String SWITCH_CONFIG_CORE_SWITCH = "core_switch";
 
     //No of Unidirectional Links in the topology
-    private static final int NLINKS = 60;
+    private static final int NLINKS = 26;
 
-    private static final int NSWITCHES = 20;
+    private static final int NSWITCHES = 10;
 
     protected IFloodlightProviderService floodlightProvider;
     protected IStorageSourceService storageSource;
