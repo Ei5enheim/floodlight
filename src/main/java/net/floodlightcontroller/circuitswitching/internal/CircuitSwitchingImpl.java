@@ -540,9 +540,7 @@ public class CircuitSwitchingImpl extends CircuitSwitchingBase implements IFlood
 						wildCards_List.addFirst(wildcard_hints);
 						// match only the pathID except at the source switch
 						wildcard_hints = new Integer(wildcard_hints);
-						wildcard_hints = wildcard_hints.intValue()  | OFMatch.OFPFW_DL_VLAN
-																	| OFMatch.OFPFW_NW_SRC_MASK
-                                             						| OFMatch.OFPFW_NW_DST_MASK;
+						wildcard_hints = wildcard_hints.intValue()  | OFMatch.OFPFW_DL_VLAN;
 						wildCards_List.addFirst(wildcard_hints);
 						srcSwOutport = pushCircuit(route, matchList, wildCards_List, sw.getId(),
 													pi, cookie, cntx, requestFlowRemovedNotifn,

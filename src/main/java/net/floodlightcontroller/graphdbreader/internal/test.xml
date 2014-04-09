@@ -1,0 +1,47 @@
+<?xml version="1.0" ?><graphml 
+xmlns="http://graphml.graphdrawing.org/xmlns" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns 
+http://graphml.graphdrawing.org/xmlns/1.1/graphml.xsd">
+<key id="Port" for="node" attr.name="Port" attr.type="string"></key>
+<key id="DPID" for="node" attr.name="DPID" attr.type="string"></key>
+<key id="Flowspace" for="node" attr.name="Flowspace" attr.type="string"></key>
+<key id="Delegated" for="node" attr.name="Delegated" attr.type="string"></key>
+<key id="domain" for="node" attr.name="domain" attr.type="string"></key>
+<key id="type" for="node" attr.name="type" attr.type="string"></key>
+<key id="Capabilities" for="edge" attr.name="Capabilities" attr.type="string"></key>
+<key id="Rules" for="edge" attr.name="Rules" attr.type="string"></key>
+
+<graph id="G" edgedefault="directed">
+	<node id="1024"><data key="Port">1</data><data key="DPID">0000ee6d527ce04f</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1025"><data key="Port">1</data><data key="DPID">0000ee6d527ce04f</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1026"><data key="Port">2</data><data key="DPID">0000ee6d527ce04f</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1027"><data key="Port">2</data><data key="DPID">0000ee6d527ce04f</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+
+<edge id="2000" source="1024" target="1027" label="Can be connected to"><data key="Capabilities">L2Switching:VLANtranslation</data></edge>
+<edge id="2001" source="1026" target="1025" label="Can be connected to"><data key="Capabilities">L2Switching:VLANtranslation</data></edge>
+
+	<node id="1028"><data key="Port">1</data><data key="DPID">000032f713e0b847</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1029"><data key="Port">1</data><data key="DPID">000032f713e0b847</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1030"><data key="Port">2</data><data key="DPID">000032f713e0b847</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1031"><data key="Port">2</data><data key="DPID">000032f713e0b847</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	
+
+<edge id="2002" source="1030" target="1029" label="Can be connected to"><data key="Capabilities">L2Switching</data></edge>
+<edge id="2003" source="1028" target="1031" label="Can be connected to"><data key="Capabilities">L2Switching</data></edge>
+
+	<node id="1032"><data key="Port">1</data><data key="DPID">0000965412a58c49</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1033"><data key="Port">1</data><data key="DPID">0000965412a58c49</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1034"><data key="Port">2</data><data key="DPID">0000965412a58c49</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>
+	<node id="1035"><data key="Port">2</data><data key="DPID">0000965412a58c49</data><data key="domain">A</data><data key="type">flowspace</data><data key="Flowspace">0/91-95</data></node>	
+
+<edge id="2004" source="1032" target="1035" label="Can be connected to"><data key="Capabilities">L2Switching</data></edge>
+<edge id="2005" source="1034" target="1033" label="Can be connected to"><data key="Capabilities">L2Switching</data></edge>
+
+<edge id="3000" source="1027" target="1028" label="Is connected to"></edge>
+<edge id="3001" source="1029" target="1026" label="Is connected to"></edge>
+
+<edge id="3002" source="1031" target="1034" label="Is connected to"></edge>
+<edge id="3003" source="1035" target="1030" label="Is connected to"></edge>
+
+</graph></graphml> 
