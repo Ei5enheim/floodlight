@@ -147,7 +147,7 @@ IFloodlightModule, IInfoProvider, IHAListener {
 
     // LLDP and BDDP fields
     private static final byte[] LLDP_STANDARD_DST_MAC_STRING = 
-            HexString.fromHexString("01:80:c2:12:00:0e");
+            HexString.fromHexString("01:80:c2:12:34:56");
     private static final long LINK_LOCAL_MASK  = 0xfffffffffff0L;
     private static final long LINK_LOCAL_VALUE = 0x0180c2000000L;
 
